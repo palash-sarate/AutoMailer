@@ -94,5 +94,30 @@ class BulkEmailSenderTestCase(unittest.TestCase):
         self.assertEqual(del_res.status_code, 200)
         self.assertTrue(del_res.get_json().get("success"))
 
+    def test_template_upload(self):
+        import io
+        test_tpl = (io.BytesIO(b"# Hello $NAME\n\nUploaded template body"), "uploaded_test.md")
+        res = self.client.post("/api/template/upload", data={"file": test_tpl}, content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("file"), "uploaded_test.md")
+        self.assertIn("Hello $NAME", data.get("content", ""))
+        if os.path.exists("uploaded_test.md"):
+            os.remove("uploaded_test.md")
+
+    def test_csv_upload(self):
+        import io
+        test_csv = (io.BytesIO(b"NAME,EMAIL,INVOICE\nAlice,alice@example.com,INV-99\n"), "uploaded_test.csv")
+        res = self.client.post("/api/csv/upload", data={"file": test_csv}, content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("file"), "uploaded_test.csv")
+        self.assertIn("INVOICE", data.get("headers", []))
+        self.assertEqual(len(data.get("rows", [])), 1)
+        if os.path.exists("uploaded_test.csv"):
+            os.remove("uploaded_test.csv")
+
 if __name__ == "__main__":
     unittest.main()

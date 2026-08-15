@@ -92,6 +92,10 @@
               <label for="select-template-file"><i data-lucide="file-text"></i> File:</label>
               <select id="select-template-file" class="form-select"></select>
             </div>
+            <label class="btn btn-secondary" for="input-upload-template" style="cursor: pointer;">
+              <i data-lucide="upload-cloud"></i> Upload Template
+            </label>
+            <input type="file" id="input-upload-template" accept=".md,.html,.txt" style="display: none;">
             <button class="btn btn-secondary" id="btn-new-template">
               <i data-lucide="plus"></i> New
             </button>
@@ -152,6 +156,10 @@
               <label for="select-csv-file"><i data-lucide="database"></i> File:</label>
               <select id="select-csv-file" class="form-select"></select>
             </div>
+            <label class="btn btn-secondary" for="input-upload-csv" style="cursor: pointer;">
+              <i data-lucide="upload-cloud"></i> Upload CSV
+            </label>
+            <input type="file" id="input-upload-csv" accept=".csv" style="display: none;">
             <button class="btn btn-secondary" id="btn-add-row"><i data-lucide="plus-circle"></i> Add Row</button>
             <button class="btn btn-secondary" id="btn-add-column"><i data-lucide="columns"></i> Add Column</button>
             <button class="btn btn-primary" id="btn-save-csv"><i data-lucide="save"></i> Save CSV</button>

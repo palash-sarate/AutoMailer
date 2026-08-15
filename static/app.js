@@ -41,11 +41,14 @@ document.addEventListener("DOMContentLoaded", () => {
     liveSubjectPreview: document.getElementById("live-subject-preview"),
     liveRenderedPreview: document.getElementById("live-rendered-preview"),
     templateVarChips: document.getElementById("template-var-chips"),
+    selectTemplateFile: document.getElementById("select-template-file"),
+    inputUploadTemplate: document.getElementById("input-upload-template"),
     btnSaveTemplate: document.getElementById("btn-save-template"),
     btnNewTemplate: document.getElementById("btn-new-template"),
 
     // CSV Tab
     selectCsvFile: document.getElementById("select-csv-file"),
+    inputUploadCsv: document.getElementById("input-upload-csv"),
     csvTableHead: document.getElementById("csv-table-head"),
     csvTableBody: document.getElementById("csv-table-body"),
     statTotalRows: document.getElementById("stat-total-rows"),
@@ -1163,6 +1166,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.btnSaveTemplate.addEventListener("click", saveTemplate);
 
+    if (els.inputUploadTemplate) {
+      els.inputUploadTemplate.addEventListener("change", async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+          const res = await fetch("/api/template/upload", {
+            method: "POST",
+            body: formData
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`Uploaded template '${data.file}'`, "success");
+            state.currentTemplateFile = data.file;
+            state.templateContent = data.content;
+            els.templateCodeEditor.value = data.content;
+            updateLiveTemplateRender();
+            await loadFileList();
+            els.selectTemplateFile.value = data.file;
+          } else {
+            showToast(data.error || "Failed to upload template", "error");
+          }
+        } catch (err) {
+          showToast("Template upload failed", "error");
+        }
+        els.inputUploadTemplate.value = "";
+      });
+    }
+
     els.btnNewTemplate.addEventListener("click", () => {
       const name = prompt("Enter new template filename (e.g. welcome.md, newsletter.html):");
       if (!name || !name.trim()) return;
@@ -1176,6 +1209,39 @@ document.addEventListener("DOMContentLoaded", () => {
     els.selectCsvFile.addEventListener("change", (e) => {
       loadCsv(e.target.value);
     });
+
+    if (els.inputUploadCsv) {
+      els.inputUploadCsv.addEventListener("change", async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+          const res = await fetch("/api/csv/upload", {
+            method: "POST",
+            body: formData
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`Uploaded CSV '${data.file}' with ${data.total} rows`, "success");
+            state.currentCsvFile = data.file;
+            state.csvHeaders = data.headers;
+            state.csvRows = data.rows;
+            renderCsvTable();
+            renderVariableChips();
+            state.currentRowIndex = 0;
+            await loadFileList();
+            els.selectCsvFile.value = data.file;
+            updatePreviewMeta();
+          } else {
+            showToast(data.error || "Failed to upload CSV", "error");
+          }
+        } catch (err) {
+          showToast("CSV upload failed", "error");
+        }
+        els.inputUploadCsv.value = "";
+      });
+    }
 
     els.btnAddRow.addEventListener("click", addCsvRow);
     els.btnAddColumn.addEventListener("click", addCsvColumn);

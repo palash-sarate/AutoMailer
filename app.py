@@ -160,9 +160,64 @@ def save_template():
     return jsonify({"success": True, "file": filename, "message": f"Saved {filename} successfully."})
 
 
+@app.route("/api/template/upload", methods=["POST"])
+def upload_template():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    file = request.files["file"]
+    if not file or not file.filename:
+        return jsonify({"error": "Empty filename"}), 400
+
+    filename = os.path.basename(file.filename)
+    path = os.path.join(os.getcwd(), filename)
+    file.save(path)
+
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        content = f.read()
+
+    return jsonify({"success": True, "file": filename, "content": content, "message": f"Uploaded {filename} successfully."})
+
+
 # ==========================================
 # CSV DATA ENDPOINTS
 # ==========================================
+
+@app.route("/api/csv/upload", methods=["POST"])
+def upload_csv():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    file = request.files["file"]
+    if not file or not file.filename:
+        return jsonify({"error": "Empty filename"}), 400
+
+    filename = os.path.basename(file.filename)
+    path = os.path.join(os.getcwd(), filename)
+    file.save(path)
+
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        content = f.read()
+
+    headers, rows = mailer_service.parse_csv_content(content)
+    annotated_rows = []
+    for idx, row in enumerate(rows):
+        email = row.get("EMAIL", row.get("email", "")).strip()
+        is_sent, record = history_manager.is_row_sent(filename, idx, email, row)
+        annotated_rows.append({
+            "index": idx,
+            "data": row,
+            "is_sent": is_sent,
+            "sent_record": record
+        })
+
+    return jsonify({
+        "success": True,
+        "file": filename,
+        "headers": headers,
+        "rows": annotated_rows,
+        "total": len(rows),
+        "sent_count": sum(1 for r in annotated_rows if r["is_sent"]),
+        "message": f"Uploaded and loaded {filename} successfully."
+    })
 
 @app.route("/api/csv", methods=["GET"])
 def load_csv():
