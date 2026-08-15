@@ -144,6 +144,9 @@ def download_asset_file(download_url: str, dest_path: str, progress_callback=Non
         raise e
 
 
+import zipfile
+
+
 def apply_update_and_restart(download_url: str) -> Dict[str, Any]:
     """Downloads the new version and performs a detached Windows binary swap."""
     if not download_url:
@@ -158,13 +161,38 @@ def apply_update_and_restart(download_url: str) -> Dict[str, Any]:
     current_exe = sys.executable
     app_dir = os.path.dirname(current_exe)
     update_file = os.path.join(app_dir, "AutoMailer.update.exe")
+    temp_download = os.path.join(app_dir, "AutoMailer.download.tmp")
     current_pid = os.getpid()
 
     try:
-        # 1. Download new binary into temp file
-        download_asset_file(download_url, update_file)
+        # 1. Download asset into temp file
+        download_asset_file(download_url, temp_download)
 
-        # 2. Launch detached PowerShell script to handle the file swap and restart
+        # 2. Extract AutoMailer.exe if downloaded as a zip package
+        if download_url.lower().endswith(".zip") or zipfile.is_zipfile(temp_download):
+            logger.info("Extracting AutoMailer.exe from downloaded zip archive...")
+            with zipfile.ZipFile(temp_download, "r") as z:
+                exe_name_in_zip = None
+                for member in z.namelist():
+                    if member.endswith("AutoMailer.exe") or member.lower() == "automailer.exe":
+                        exe_name_in_zip = member
+                        break
+                if exe_name_in_zip:
+                    with z.open(exe_name_in_zip) as zf, open(update_file, "wb") as out_f:
+                        out_f.write(zf.read())
+                else:
+                    raise ValueError("No AutoMailer.exe found inside downloaded zip package.")
+            try:
+                os.remove(temp_download)
+            except Exception:
+                pass
+        else:
+            # Directly .exe binary
+            if os.path.exists(update_file):
+                os.remove(update_file)
+            os.rename(temp_download, update_file)
+
+        # 3. Launch detached PowerShell script to handle the file swap and restart
         # The script waits for current PID to exit, overwrites AutoMailer.exe, and relaunches it.
         ps_cmd = (
             f"$targetPid = {current_pid}; "
