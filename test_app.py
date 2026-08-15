@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from app import app
 import history_manager
@@ -6,6 +7,12 @@ import history_manager
 class BulkEmailSenderTestCase(unittest.TestCase):
     def setUp(self):
         self.client = app.test_client()
+        if not os.path.exists("compose.md"):
+            with open("compose.md", "w", encoding="utf-8") as f:
+                f.write("Invoice Reminder for $NAME - $DATE\n\nHello $NAME\n")
+        if not os.path.exists("data.csv"):
+            with open("data.csv", "w", encoding="utf-8") as f:
+                f.write("NAME,DATE,AMOUNT,INVOICE_NO,EMAIL\nJohn Doe,2026-08-20,$250.00,INV-1001,test@example.com\n")
 
     def test_get_config(self):
         res = self.client.get("/api/config")

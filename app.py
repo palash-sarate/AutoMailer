@@ -134,6 +134,11 @@ def load_template():
     filename = request.args.get("file", "compose.md")
     path = os.path.join(os.getcwd(), os.path.basename(filename))
     if not os.path.exists(path):
+        if filename == "compose.md":
+            default_template = "Invoice Reminder for $NAME - $DATE\n\nDear $NAME,\n\nThis is a friendly reminder regarding your invoice **#$INVOICE_NO**.\n\nBest regards,\n**Operations Team**\n"
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(default_template)
+            return jsonify({"file": filename, "content": default_template})
         return jsonify({"error": f"File '{filename}' not found.", "content": ""}), 404
 
     with open(path, "r", encoding="utf-8") as f:
@@ -164,7 +169,12 @@ def load_csv():
     filename = request.args.get("file", "data.csv")
     path = os.path.join(os.getcwd(), os.path.basename(filename))
     if not os.path.exists(path):
-        return jsonify({"error": f"File '{filename}' not found.", "headers": [], "rows": []}), 404
+        if filename == "data.csv":
+            default_csv = "NAME,DATE,AMOUNT,INVOICE_NO,EMAIL\nJohn Doe,2026-08-20,$250.00,INV-1001,recipient@example.com\n"
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(default_csv)
+        else:
+            return jsonify({"error": f"File '{filename}' not found.", "headers": [], "rows": []}), 404
 
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()

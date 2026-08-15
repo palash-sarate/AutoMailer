@@ -50,10 +50,24 @@ def build_executable():
     if os.path.exists(exe_path):
         shutil.copy(exe_path, portable_folder)
 
-    # Copy sample configuration and template files
-    for item in ["compose.md", "data.csv", ".env"]:
-        if os.path.exists(item):
-            shutil.copy(item, portable_folder)
+    # Copy or create sample configuration and template files
+    if os.path.exists("compose.md"):
+        shutil.copy("compose.md", portable_folder)
+    else:
+        with open(os.path.join(portable_folder, "compose.md"), "w", encoding="utf-8") as f:
+            f.write("Invoice Reminder for $NAME - $DATE\n\nDear $NAME,\n\nThis is a friendly reminder regarding your invoice **#$INVOICE_NO**.\n\nBest regards,\n**Operations Team**\n")
+
+    if os.path.exists("data.csv"):
+        shutil.copy("data.csv", portable_folder)
+    else:
+        with open(os.path.join(portable_folder, "data.csv"), "w", encoding="utf-8") as f:
+            f.write("NAME,DATE,AMOUNT,INVOICE_NO,EMAIL\nJohn Doe,2026-08-20,$250.00,INV-1001,recipient@example.com\n")
+
+    if os.path.exists(".env"):
+        shutil.copy(".env", portable_folder)
+    else:
+        with open(os.path.join(portable_folder, ".env"), "w", encoding="utf-8") as f:
+            f.write('display_name="Sender Name"\nsender_email="your_email@gmail.com"\npassword=""\nsmtp_host="smtp.gmail.com"\nsmtp_port="587"\nmail_compose="compose.md"\nsubject=""\n')
 
     attach_dir = os.path.join(portable_folder, "ATTACH")
     os.makedirs(attach_dir, exist_ok=True)
