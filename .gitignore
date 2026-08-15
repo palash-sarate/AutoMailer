@@ -3,6 +3,11 @@ compose.md
 data.csv
 .env
 compose.html
+sent_history.json
+sent_history.json.tmp
+dist/
+build/
+*.spec
 
 secrets.yml
 # Byte-compiled / optimized / DLL files

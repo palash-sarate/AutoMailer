@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Email Sender | Pro Dashboard</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Marked.js for Live Markdown Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navbar -->
+    <header class="navbar">
+      <div class="nav-brand">
+        <div class="brand-icon">
+          <i data-lucide="mail"></i>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">AutoMailer</span>
+          <span class="brand-badge">PRO</span>
+        </div>
+      </div>
+
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="tab-template" id="nav-btn-template">
+          <i data-lucide="file-code"></i>
+          <span>Template</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-csv" id="nav-btn-csv">
+          <i data-lucide="table"></i>
+          <span>CSV Data</span>
+          <span class="tab-count-badge" id="badge-csv-rows">0</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-attachments" id="nav-btn-attachments">
+          <i data-lucide="paperclip"></i>
+          <span>Attachments</span>
+          <span class="tab-count-badge" id="badge-attachments-count">0</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-preview" id="nav-btn-preview">
+          <i data-lucide="send"></i>
+          <span>Preview & Send</span>
+          <span class="tab-status-dot" id="dot-send-status"></span>
+        </button>
+        <button class="nav-tab" data-tab="tab-history" id="nav-btn-history">
+          <i data-lucide="history"></i>
+          <span>Sent History</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-settings" id="nav-btn-settings">
+          <i data-lucide="sliders"></i>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="btn btn-ghost btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme">
+          <i data-lucide="sun" class="sun-icon"></i>
+          <i data-lucide="moon" class="moon-icon"></i>
+        </button>
+        <div class="smtp-indicator" id="smtp-status-pill" title="SMTP Connection Status">
+          <span class="status-dot"></span>
+          <span class="status-text">SMTP: Ready</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-container">
+
+      <!-- ========================================== -->
+      <!-- TAB 1: TEMPLATE EDITOR -->
+      <!-- ========================================== -->
+      <section class="tab-content active" id="tab-template">
+        <div class="pane-header">
+          <div class="pane-title-group">
+            <h2>Email Template Editor</h2>
+            <p class="subtitle">Draft your email in Markdown or HTML. Use <code>$VARIABLE</code> placeholders mapped to CSV columns.</p>
+          </div>
+          <div class="pane-controls">
+            <div class="select-group">
+              <label for="select-template-file"><i data-lucide="file-text"></i> File:</label>
+              <select id="select-template-file" class="form-select"></select>
+            </div>
+            <button class="btn btn-secondary" id="btn-new-template">
+              <i data-lucide="plus"></i> New
+            </button>
+            <button class="btn btn-primary" id="btn-save-template">
+              <i data-lucide="save"></i> Save Template
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Variables Chips Bar -->
+        <div class="variables-bar">
+          <span class="var-label"><i data-lucide="sparkles"></i> Available Variables (click to insert):</span>
+          <div class="var-chips-container" id="template-var-chips">
+            <!-- Populated dynamically from CSV headers -->
+          </div>
+        </div>
+
+        <div class="split-editor-view">
+          <!-- Left Editor Pane -->
+          <div class="editor-pane card">
+            <div class="editor-pane-header">
+              <span class="pane-tag"><i data-lucide="code-2"></i> Source (<span id="template-file-ext">Markdown</span>)</span>
+              <span class="tip-text">First line becomes Subject if no custom subject in Settings</span>
+            </div>
+            <textarea id="template-code-editor" class="code-textarea" placeholder="Write your email body or template here..."></textarea>
+          </div>
+
+          <!-- Right Live Rendered Pane -->
+          <div class="preview-pane card">
+            <div class="editor-pane-header">
+              <span class="pane-tag"><i data-lucide="eye"></i> Live Template Render</span>
+              <span class="preview-format-pill" id="template-format-badge">Markdown Mode</span>
+            </div>
+            <div class="email-mockup-frame">
+              <div class="mockup-header">
+                <div class="mockup-dots"><span></span><span></span><span></span></div>
+                <div class="mockup-subject-line" id="live-subject-preview">Subject: (Loading...)</div>
+              </div>
+              <div class="mockup-body" id="live-rendered-preview">
+                <!-- Live HTML Render -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: CSV DATA MANAGER -->
+      <!-- ========================================== -->
+      <section class="tab-content" id="tab-csv">
+        <div class="pane-header">
+          <div class="pane-title-group">
+            <h2>CSV Recipient Data</h2>
+            <p class="subtitle">Manage contacts and dynamic variable values. Ensure an <code>EMAIL</code> column exists.</p>
+          </div>
+          <div class="pane-controls">
+            <div class="select-group">
+              <label for="select-csv-file"><i data-lucide="database"></i> File:</label>
+              <select id="select-csv-file" class="form-select"></select>
+            </div>
+            <button class="btn btn-secondary" id="btn-add-row"><i data-lucide="plus-circle"></i> Add Row</button>
+            <button class="btn btn-secondary" id="btn-add-column"><i data-lucide="columns"></i> Add Column</button>
+            <button class="btn btn-primary" id="btn-save-csv"><i data-lucide="save"></i> Save CSV</button>
+          </div>
+        </div>
+
+        <!-- Table Summary Bar -->
+        <div class="table-summary-card card">
+          <div class="stat-item">
+            <span class="stat-label">Total Recipients</span>
+            <span class="stat-value" id="stat-total-rows">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Sent Count</span>
+            <span class="stat-value text-success" id="stat-sent-rows">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Pending</span>
+            <span class="stat-value text-warning" id="stat-pending-rows">0</span>
+          </div>
+          <div class="table-search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="csv-search-input" placeholder="Search rows by name, email, data..." class="search-input">
+          </div>
+        </div>
+
+        <!-- Editable Data Table -->
+        <div class="table-wrapper card">
+          <table class="data-table" id="csv-data-table">
+            <thead id="csv-table-head">
+              <!-- Dynamically populated -->
+            </thead>
+            <tbody id="csv-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: ATTACHMENTS MANAGER -->
+      <!-- ========================================== -->
+      <section class="tab-content" id="tab-attachments">
+        <div class="pane-header">
+          <div class="pane-title-group">
+            <h2>Campaign Attachments Manager</h2>
+            <p class="subtitle">Upload files (PDFs, invoices, brochures, images) to automatically attach them to all outgoing emails.</p>
+          </div>
+          <div class="pane-controls">
+            <label class="btn btn-primary" for="attachments-tab-file-input" style="cursor: pointer;">
+              <i data-lucide="upload-cloud"></i> Upload New Files
+            </label>
+            <input type="file" id="attachments-tab-file-input" multiple style="display: none;">
+            <button class="btn btn-secondary" id="btn-refresh-attachments-tab">
+              <i data-lucide="refresh-cw"></i> Refresh Files
+            </button>
+          </div>
+        </div>
+
+        <!-- Info Card Banner -->
+        <div class="alert-banner alert-warning" style="background: rgba(99, 102, 241, 0.12); border-color: rgba(99, 102, 241, 0.3);">
+          <div class="alert-icon"><i data-lucide="info" style="color: var(--primary);"></i></div>
+          <div class="alert-content">
+            <div class="alert-title" style="color: var(--text-primary);">How Attachments Work:</div>
+            <div class="alert-desc">
+              1. <strong>Global Attachments:</strong> Any file checked in this list is stored in the <code>ATTACH/</code> directory and attached to <em>every</em> email sent.<br>
+              2. <strong>Personalized/Dynamic Attachments:</strong> You can also add an <code>ATTACHMENT</code> column in your CSV (e.g. <code>invoice_$INVOICE_NO.pdf</code>) to attach unique files per row.
+            </div>
+          </div>
+        </div>
+
+        <!-- Large Drop Zone -->
+        <div class="drop-zone card" id="attachments-tab-dropzone" style="padding: 2.5rem 1.5rem; border: 2px dashed var(--border-color); background: rgba(0, 0, 0, 0.15);">
+          <i data-lucide="upload-cloud" style="width: 42px; height: 42px; color: var(--primary); margin-bottom: 0.5rem;"></i>
+          <h3 style="font-family: var(--font-display); font-size: 1.15rem;">Drag & Drop Files Here</h3>
+          <p class="text-secondary text-sm">Supports any file type: PDFs, DOCX, PNG, JPG, ZIP, XLSX. Max size 25MB recommended.</p>
+          <button class="btn btn-secondary btn-sm" style="margin-top: 0.75rem;" onclick="document.getElementById('attachments-tab-file-input').click()">
+            <i data-lucide="folder-open"></i> Or Browse Files
+          </button>
+        </div>
+
+        <!-- Attachments Table -->
+        <div class="table-wrapper card">
+          <table class="data-table" id="attachments-main-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">Include</th>
+                <th>File Name</th>
+                <th style="width: 120px;">Size</th>
+                <th style="width: 160px;">Path</th>
+                <th style="width: 100px; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="attachments-tab-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: PREVIEW & SEND CENTER -->
+      <!-- ========================================== -->
+      <section class="tab-content" id="tab-preview">
+        <div class="pane-header">
+          <div class="pane-title-group">
+            <h2>Preview & Send Center</h2>
+            <p class="subtitle">Inspect exact email output row-by-row and dispatch individual or batch campaigns.</p>
+          </div>
+          <div class="pane-controls">
+            <button class="btn btn-accent" id="btn-open-batch-modal">
+              <i data-lucide="send"></i> Batch Send All Pending
+            </button>
+          </div>
+        </div>
+
+        <!-- Row Carousel / Selector Bar -->
+        <div class="row-navigator card">
+          <div class="nav-controls-left">
+            <button class="btn btn-secondary btn-sm" id="btn-prev-row">
+              <i data-lucide="chevron-left"></i> Previous Row
+            </button>
+            <div class="row-counter-display">
+              Row <span id="current-row-display">1</span> of <span id="total-rows-display">1</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-next-row">
+              Next Row <i data-lucide="chevron-right"></i>
+            </button>
+          </div>
+
+          <div class="recipient-jump-select">
+            <label for="select-row-jump">Jump to:</label>
+            <select id="select-row-jump" class="form-select form-select-sm"></select>
+          </div>
+
+          <div class="row-status-pill-container" id="current-row-status-badge">
+            <span class="badge badge-pending"><i data-lucide="clock"></i> Pending</span>
+          </div>
+        </div>
+
+        <!-- Duplicate Prevention Alert Banner -->
+        <div class="alert-banner alert-warning" id="duplicate-warning-banner" style="display: none;">
+          <div class="alert-icon"><i data-lucide="shield-alert"></i></div>
+          <div class="alert-content">
+            <div class="alert-title">Duplicate Send Protection Active</div>
+            <div class="alert-desc" id="duplicate-warning-text">This row's email was already sent on 2026-08-15 12:00:00. Resending is blocked unless you enable 'Force Resend'.</div>
+          </div>
+          <div class="alert-action">
+            <label class="checkbox-label">
+              <input type="checkbox" id="check-force-resend">
+              <span>Allow Force Resend</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="preview-layout-grid">
+          <!-- Left: Email Inspection Card -->
+          <div class="email-preview-card card">
+            <div class="email-meta-header">
+              <div class="meta-row">
+                <span class="meta-label">From:</span>
+                <span class="meta-value" id="preview-sender-meta">Display Name &lt;email@example.com&gt;</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">To:</span>
+                <span class="meta-value font-mono text-highlight" id="preview-recipient-meta">recipient@example.com</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Subject:</span>
+                <span class="meta-value font-semibold" id="preview-subject-meta">Email Subject Line</span>
+              </div>
+            </div>
+
+            <!-- Email Body Frame -->
+            <div class="email-rendered-viewport" id="preview-body-rendered">
+              <!-- Rendered HTML Content -->
+            </div>
+          </div>
+
+          <!-- Right: Send Control Panel -->
+          <div class="send-control-sidebar">
+            <div class="card send-action-card">
+              <h3 class="card-title"><i data-lucide="send"></i> Dispatch Email</h3>
+              <p class="card-desc">Send email immediately for the currently previewed row.</p>
+              
+              <div class="attachments-section">
+                <div class="attachments-header-row">
+                  <span class="section-subtitle"><i data-lucide="paperclip"></i> Attachments (<span id="attachments-selected-count">0</span>):</span>
+                  <label class="btn btn-secondary btn-sm" for="attachment-file-input" style="cursor: pointer;">
+                    <i data-lucide="upload-cloud"></i> Add Files
+                  </label>
+                  <input type="file" id="attachment-file-input" multiple style="display: none;">
+                </div>
+
+                <!-- Drag & Drop Zone -->
+                <div class="drop-zone" id="attachments-drop-zone">
+                  <i data-lucide="upload-cloud" class="drop-icon"></i>
+                  <span class="drop-text">Drag & drop files here, or <strong class="text-highlight">Browse</strong></span>
+                </div>
+
+                <!-- Attachment Files List -->
+                <div class="attachments-list" id="preview-attachments-list">
+                  <p class="text-muted text-sm">No files attached yet.</p>
+                </div>
+              </div>
+
+              <div class="send-button-group">
+                <button class="btn btn-primary btn-lg w-full" id="btn-send-single-row">
+                  <i data-lucide="mail"></i> Send This Email
+                </button>
+              </div>
+
+              <div class="send-response-card" id="send-response-box" style="display: none;">
+                <!-- Result message from server -->
+              </div>
+            </div>
+
+            <!-- Row Data Inspection Card -->
+            <div class="card row-data-card">
+              <h3 class="card-title"><i data-lucide="code"></i> Row Data Values</h3>
+              <div class="row-data-keyvalues" id="preview-row-keyvalues">
+                <!-- Key-value list of current row variables -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: SENT HISTORY & LOGS -->
+      <!-- ========================================== -->
+      <section class="tab-content" id="tab-history">
+        <div class="pane-header">
+          <div class="pane-title-group">
+            <h2>Delivery History & Tracking Logs</h2>
+            <p class="subtitle">Complete audit trail of all dispatched emails, timestamps, and delivery outcomes.</p>
+          </div>
+          <div class="pane-controls">
+            <button class="btn btn-secondary" id="btn-refresh-history"><i data-lucide="refresh-cw"></i> Refresh</button>
+            <button class="btn btn-danger" id="btn-clear-history"><i data-lucide="trash-2"></i> Reset Tracking</button>
+          </div>
+        </div>
+
+        <div class="history-table-wrapper card">
+          <table class="data-table" id="history-data-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Recipient Email</th>
+                <th>Subject</th>
+                <th>CSV File</th>
+                <th>Row #</th>
+                <th>Status</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 5: SETTINGS & SMTP CONFIG -->
+      <!-- ========================================== -->
+      <section class="tab-content" id="tab-settings">
+        <div class="pane-header">
+          <div class="pane-title-group">
+            <h2>SMTP Configuration & Environment</h2>
+            <p class="subtitle">Configure your sender credentials, mail server settings, and defaults saved to <code>.env</code>.</p>
+          </div>
+          <div class="pane-controls">
+            <button class="btn btn-secondary" id="btn-test-smtp">
+              <i data-lucide="activity"></i> Test SMTP Connection
+            </button>
+            <button class="btn btn-primary" id="btn-save-settings">
+              <i data-lucide="save"></i> Save Settings
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <div class="card settings-card">
+            <h3 class="card-title"><i data-lucide="user-check"></i> Sender Identity</h3>
+            <div class="form-group">
+              <label for="input-display-name">Display Name:</label>
+              <input type="text" id="input-display-name" class="form-input" placeholder="e.g. Palash Sarate">
+              <small class="form-hint">The name recipients will see in their inbox header.</small>
+            </div>
+            <div class="form-group">
+              <label for="input-sender-email">Sender Email Address:</label>
+              <input type="email" id="input-sender-email" class="form-input" placeholder="e.g. yourname@gmail.com">
+            </div>
+            <div class="form-group">
+              <label for="input-password">App Password / Password:</label>
+              <div class="password-input-group">
+                <input type="password" id="input-password" class="form-input" placeholder="16-character Google App Password">
+                <button type="button" class="btn btn-ghost btn-icon" id="btn-toggle-pwd" title="Show/Hide Password">
+                  <i data-lucide="eye" id="eye-icon"></i>
+                </button>
+              </div>
+              <small class="form-hint">
+                For Gmail, generate an <strong>App Password</strong> in Google Account &gt; Security &gt; 2-Step Verification.<br>
+                🔗 Direct Link: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" class="text-highlight" style="text-decoration: underline;">https://myaccount.google.com/apppasswords</a>
+              </small>
+            </div>
+          </div>
+
+          <div class="card settings-card">
+            <h3 class="card-title"><i data-lucide="server"></i> SMTP Mail Server</h3>
+            <div class="form-row">
+              <div class="form-group flex-2">
+                <label for="input-smtp-host">SMTP Host Server:</label>
+                <input type="text" id="input-smtp-host" class="form-input" placeholder="smtp.gmail.com">
+              </div>
+              <div class="form-group flex-1">
+                <label for="input-smtp-port">Port:</label>
+                <input type="number" id="input-smtp-port" class="form-input" placeholder="587">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="input-default-subject">Default Subject Line (Optional):</label>
+              <input type="text" id="input-default-subject" class="form-input" placeholder="e.g. Invoice Reminder for $NAME">
+              <small class="form-hint">Leave blank to use the first line of your Markdown template as the subject.</small>
+            </div>
+            <div class="form-group">
+              <label for="input-mail-compose">Default Template File:</label>
+              <input type="text" id="input-mail-compose" class="form-input" placeholder="compose.md">
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection Test Result Box -->
+        <div class="card test-result-card" id="smtp-test-result-card" style="display: none;">
+          <div class="test-result-content" id="smtp-test-result-content"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: BATCH SENDING ENGINE -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="batch-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <i data-lucide="rocket" class="modal-icon text-accent"></i>
+          <h3>Batch Campaign Sender</h3>
+        </div>
+        <button class="btn btn-ghost btn-icon" id="btn-close-batch-modal"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="batch-config-panel">
+          <div class="form-row">
+            <div class="form-group">
+              <label><i data-lucide="database"></i> Target CSV:</label>
+              <span class="badge badge-secondary" id="batch-target-csv-badge">data.csv</span>
+            </div>
+            <div class="form-group">
+              <label><i data-lucide="timer"></i> Delay Between Sends (seconds):</label>
+              <input type="number" id="input-batch-delay" class="form-input form-input-sm" value="1.5" min="0.5" step="0.5">
+            </div>
+          </div>
+
+          <div class="batch-options-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="check-batch-force-all">
+              <span><strong>Force Resend All</strong> (Include already sent rows)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div class="batch-progress-section">
+          <div class="progress-labels">
+            <span id="batch-progress-status-text">Ready to start</span>
+            <span id="batch-progress-percent">0%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="batch-progress-fill" style="width: 0%;"></div>
+          </div>
+          <div class="batch-stats-row">
+            <span class="badge badge-success"><i data-lucide="check"></i> Sent: <strong id="batch-stat-sent">0</strong></span>
+            <span class="badge badge-warning"><i data-lucide="skip-forward"></i> Skipped: <strong id="batch-stat-skipped">0</strong></span>
+            <span class="badge badge-danger"><i data-lucide="alert-circle"></i> Failed: <strong id="batch-stat-failed">0</strong></span>
+            <span class="badge badge-secondary">Total: <strong id="batch-stat-total">0</strong></span>
+          </div>
+        </div>
+
+        <!-- Live Transmission Log Console -->
+        <div class="batch-console-log" id="batch-console-log">
+          <div class="console-line text-muted">[System] Ready. Click "Start Campaign" to dispatch emails.</div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-batch">Close</button>
+        <button class="btn btn-primary btn-lg" id="btn-start-batch">
+          <i data-lucide="play"></i> Start Campaign
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script src="app.js?v=5"></script>
+</body>
+</html>

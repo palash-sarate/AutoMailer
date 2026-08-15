@@ -100,8 +100,8 @@ def send_emails(server: SMTP, template, is_html):
 
 
 if __name__ == "__main__":
-    host = "smtppro.zoho.in"
-    port = 587  # TLS replaced SSL in 1999
+    host = os.getenv("smtp_host", "smtp.gmail.com")
+    port = int(os.getenv("smtp_port", 587))
 
     is_html = MAIL_COMPOSE.endswith("html")
 
@@ -113,14 +113,11 @@ if __name__ == "__main__":
     server = SMTP(host=host, port=port)
     server.connect(host=host, port=port)
     server.ehlo()
-    # server.starttls(context=context)
-    server.starttls()
+    server.starttls(context=context)
     server.ehlo()
-    server.login(user=SENDER_EMAIL, password=PASSWORD)
-    print(SENDER_EMAIL, PASSWORD)
+    server.login(user=SENDER_EMAIL, password=PASSWORD.replace(" ", ""))
+    print(f"Logged in successfully as {SENDER_EMAIL}")
 
-    # with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-    #     server.login(SENDER_EMAIL, PASSWORD)
     send_emails(server, template, is_html)
 
 
