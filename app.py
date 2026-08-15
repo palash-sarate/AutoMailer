@@ -530,7 +530,7 @@ def open_browser():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     print(f"\n=======================================================")
-    print(f"  Bulk Email Sender Dashboard running at:")
+    print(f"  AutoMailer Dashboard running at:")
     print(f"  👉 http://localhost:{port}")
     print(f"=======================================================\n")
     if not os.getenv("NO_AUTO_OPEN"):

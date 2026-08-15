@@ -1,6 +1,6 @@
-# 📬 AutoMailer - Bulk Email Sender
+# 📬 AutoMailer - AutoMailer
 
-> A modern, full-featured Bulk Email Sender with an interactive Web Dashboard, live Markdown/HTML templating, CSV data manager, row-by-row email preview, duplicate prevention tracking, drag-and-drop attachments, and portable executable packaging.
+> A modern, full-featured AutoMailer with an interactive Web Dashboard, live Markdown/HTML templating, CSV data manager, row-by-row email preview, duplicate prevention tracking, drag-and-drop attachments, and portable executable packaging.
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-green.svg?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)

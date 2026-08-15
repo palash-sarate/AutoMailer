@@ -1,5 +1,5 @@
 /**
- * Bulk Email Sender - Frontend Application Engine
+ * AutoMailer - Frontend Application Engine
  */
 
 document.addEventListener("DOMContentLoaded", () => {
