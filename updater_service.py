@@ -198,6 +198,7 @@ def apply_update_and_restart(download_url: str) -> Dict[str, Any]:
 set "TARGET_PID={current_pid}"
 set "OLD_EXE={current_exe}"
 set "NEW_EXE={update_file}"
+set "APP_DIR={app_dir}"
 
 :wait_proc
 tasklist /fi "pid eq %TARGET_PID%" | findstr /i "%TARGET_PID%" >nul
@@ -212,7 +213,9 @@ if exist "%OLD_EXE%" del /f /q "%OLD_EXE%" >nul 2>&1
 move /y "%NEW_EXE%" "%OLD_EXE%" >nul 2>&1
 if not exist "%OLD_EXE%" goto retry_swap
 
+cd /d "%APP_DIR%"
 start "" "%OLD_EXE%"
+timeout /t 2 /nobreak >nul
 del /f /q "%~f0" >nul 2>&1
 """
         with open(bat_file, "w", encoding="utf-8") as f:
