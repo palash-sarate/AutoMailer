@@ -192,28 +192,43 @@ def apply_update_and_restart(download_url: str) -> Dict[str, Any]:
                 os.remove(update_file)
             os.rename(temp_download, update_file)
 
-        # 3. Launch detached PowerShell script to handle the file swap and restart
-        # The script waits for current PID to exit, overwrites AutoMailer.exe, and relaunches it.
-        ps_cmd = (
-            f"$targetPid = {current_pid}; "
-            f"$oldExe = '{current_exe}'; "
-            f"$newExe = '{update_file}'; "
-            f"while (Get-Process -Id $targetPid -ErrorAction SilentlyContinue) {{ Start-Sleep -Milliseconds 200 }}; "
-            f"Start-Sleep -Milliseconds 400; "
-            f"Move-Item -Force $newExe $oldExe; "
-            f"Start-Process $oldExe"
-        )
+        # 3. Create standalone batch script to handle the file swap and restart
+        bat_file = os.path.join(app_dir, "_automailer_updater.bat")
+        bat_content = f"""@echo off
+set "TARGET_PID={current_pid}"
+set "OLD_EXE={current_exe}"
+set "NEW_EXE={update_file}"
 
-        logger.info("Spawning detached updater process to replace %s...", current_exe)
-        
-        # Create detached process without console window
+:wait_proc
+tasklist /fi "pid eq %TARGET_PID%" | findstr /i "%TARGET_PID%" >nul
+if not errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto wait_proc
+)
+
+:retry_swap
+timeout /t 1 /nobreak >nul
+if exist "%OLD_EXE%" del /f /q "%OLD_EXE%" >nul 2>&1
+move /y "%NEW_EXE%" "%OLD_EXE%" >nul 2>&1
+if not exist "%OLD_EXE%" goto retry_swap
+
+start "" "%OLD_EXE%"
+del /f /q "%~f0" >nul 2>&1
+"""
+        with open(bat_file, "w", encoding="utf-8") as f:
+            f.write(bat_content)
+
+        logger.info("Spawning detached updater batch process to replace %s...", current_exe)
+
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
         CREATE_NO_WINDOW = 0x08000000
-        DETACHED_PROCESS = 0x00000008
-        creation_flags = CREATE_NO_WINDOW | DETACHED_PROCESS
 
         subprocess.Popen(
-            ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_cmd],
-            creationflags=creation_flags,
+            ["cmd.exe", "/c", bat_file],
+            creationflags=CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             close_fds=True
         )
 
