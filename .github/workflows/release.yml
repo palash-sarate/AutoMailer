@@ -43,6 +43,47 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Determine Tag & Version
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_RAW="${{ github.event.inputs.release_tag }}"
+            echo "tag=${TAG_RAW}" >> $GITHUB_OUTPUT
+            echo "version=${TAG_RAW#v}" >> $GITHUB_OUTPUT
+            echo "title=${{ github.event.inputs.release_title }}" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "version=${TAG_NAME#v}" >> $GITHUB_OUTPUT
+            echo "title=AutoMailer Pro ${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.head_commit.message }}" == *"[release]"* ]]; then
+            COMMIT_TAG="v1.0.$(date +'%Y%m%d%H%M')"
+            echo "tag=${COMMIT_TAG}" >> $GITHUB_OUTPUT
+            echo "version=${COMMIT_TAG#v}" >> $GITHUB_OUTPUT
+            echo "title=AutoMailer Pro ${COMMIT_TAG}" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Inject Version from Git Tag
+        if: steps.vars.outputs.is_release == 'true'
+        shell: bash
+        run: |
+          python -c "
+          import re
+          ver = '${{ steps.vars.outputs.version }}'
+          with open('updater_service.py', 'r', encoding='utf-8') as f:
+              content = f.read()
+          content = re.sub(r'APP_VERSION\s*=\s*[\"\\\'].*?[\"\\\']', f'APP_VERSION = \"{ver}\"', content)
+          with open('updater_service.py', 'w', encoding='utf-8') as f:
+              f.write(content)
+          print(f'Successfully injected version v{ver} into updater_service.py')
+          "
+
       - name: Run Unit Tests
         run: |
           python test_app.py
@@ -54,28 +95,6 @@ jobs:
       - name: Package Release Zip
         run: |
           Compress-Archive -Path dist\AutoMailer_Portable\* -DestinationPath dist\AutoMailer_Portable_Windows.zip
-
-      - name: Determine Tag Name
-        id: vars
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
-            echo "title=${{ github.event.inputs.release_title }}" >> $GITHUB_OUTPUT
-            echo "is_release=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            TAG_NAME="${GITHUB_REF#refs/tags/}"
-            echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
-            echo "title=AutoMailer Pro ${TAG_NAME}" >> $GITHUB_OUTPUT
-            echo "is_release=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.head_commit.message }}" == *"[release]"* ]]; then
-            COMMIT_TAG="v1.0.$(date +'%Y%m%d%H%M')"
-            echo "tag=${COMMIT_TAG}" >> $GITHUB_OUTPUT
-            echo "title=AutoMailer Pro ${COMMIT_TAG}" >> $GITHUB_OUTPUT
-            echo "is_release=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_release=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Create GitHub Release
         if: steps.vars.outputs.is_release == 'true'

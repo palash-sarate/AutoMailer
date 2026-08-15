@@ -12,7 +12,7 @@ from logger_config import get_logger
 
 logger = get_logger("updater_service")
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.3"
 GITHUB_REPO = "palash-sarate/AutoMailer"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 IS_FROZEN = getattr(sys, "frozen", False)

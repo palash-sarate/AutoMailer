@@ -163,13 +163,14 @@ class BulkEmailSenderTestCase(unittest.TestCase):
         self.assertFalse(updater_service.is_newer_version("v1.0.0", "v1.0.1"))
 
     def test_version_status_endpoint(self):
+        import updater_service
         res = self.client.get("/api/version/status")
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIn("version", data)
         self.assertIn("is_frozen", data)
         self.assertIn("repo", data)
-        self.assertEqual(data["version"], "1.0.1")
+        self.assertEqual(data["version"], updater_service.APP_VERSION)
 
 if __name__ == "__main__":
     unittest.main()
