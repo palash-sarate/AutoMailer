@@ -150,5 +150,26 @@ class BulkEmailSenderTestCase(unittest.TestCase):
         data = res.get_json()
         self.assertTrue(data.get("success"))
 
+    def test_semver_parsing_and_comparison(self):
+        import updater_service
+        self.assertEqual(updater_service.parse_semver("v1.0.1"), (1, 0, 1))
+        self.assertEqual(updater_service.parse_semver("1.2.3"), (1, 2, 3))
+        self.assertEqual(updater_service.parse_semver("v2.0.0-beta"), (2, 0, 0))
+
+        self.assertTrue(updater_service.is_newer_version("v1.0.2", "v1.0.1"))
+        self.assertTrue(updater_service.is_newer_version("v1.1.0", "v1.0.9"))
+        self.assertTrue(updater_service.is_newer_version("v2.0.0", "v1.99.99"))
+        self.assertFalse(updater_service.is_newer_version("v1.0.1", "v1.0.1"))
+        self.assertFalse(updater_service.is_newer_version("v1.0.0", "v1.0.1"))
+
+    def test_version_status_endpoint(self):
+        res = self.client.get("/api/version/status")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("version", data)
+        self.assertIn("is_frozen", data)
+        self.assertIn("repo", data)
+        self.assertEqual(data["version"], "1.0.1")
+
 if __name__ == "__main__":
     unittest.main()

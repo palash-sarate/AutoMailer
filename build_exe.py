@@ -36,6 +36,8 @@ def build_executable():
         "--hidden-import=smtplib",
         "--hidden-import=flask",
         "--hidden-import=logger_config",
+        "--hidden-import=updater_service",
+        "--hidden-import=urllib.request",
         "app.py"
     ]
 

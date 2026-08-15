@@ -1529,3 +1529,73 @@ body {
 .toast.toast-error { border-left: 4px solid var(--danger); }
 .toast.toast-warning { border-left: 4px solid var(--warning); }
 .toast.toast-info { border-left: 4px solid var(--primary); }
+
+/* ==========================================================================
+   OTA UPDATER STYLES
+   ========================================================================== */
+.version-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.update-pill {
+  animation: pulseUpdate 2s infinite ease-in-out;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+@keyframes pulseUpdate {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+}
+
+.update-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+  background: var(--bg-tertiary);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.update-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.update-notice-card {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+
+.update-notice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.update-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.update-notes-body {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: inherit;
+}

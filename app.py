@@ -12,6 +12,7 @@ from flask import Flask, Response, jsonify, render_template_string, request, sen
 
 import history_manager
 import mailer_service
+import updater_service
 from logger_config import get_logger
 
 logger = get_logger("app")
@@ -29,7 +30,7 @@ def get_static_dir():
 
 # Ensure working directory is next to executable or script
 os.chdir(get_base_dir())
-logger.info("AutoMailer backend initialized. Base Dir: %s", get_base_dir())
+logger.info("AutoMailer backend initialized (v%s). Base Dir: %s", updater_service.APP_VERSION, get_base_dir())
 
 app = Flask(__name__, static_folder=get_static_dir(), static_url_path="")
 
@@ -45,6 +46,34 @@ def add_header(response):
 @app.route("/")
 def index():
     return send_from_directory(get_static_dir(), "index.html")
+
+
+# ==========================================
+# VERSION & OTA UPDATER ENDPOINTS
+# ==========================================
+
+@app.route("/api/version/status", methods=["GET"])
+def get_version_status():
+    """Returns application version and environment mode."""
+    return jsonify({
+        "version": updater_service.APP_VERSION,
+        "is_frozen": updater_service.IS_FROZEN,
+        "repo": updater_service.GITHUB_REPO
+    })
+
+
+@app.route("/api/version/check", methods=["GET"])
+def check_version():
+    """Queries GitHub Releases API for updates."""
+    return jsonify(updater_service.check_for_updates())
+
+
+@app.route("/api/version/apply", methods=["POST"])
+def apply_version():
+    """Downloads new release asset and triggers detached Windows swap."""
+    data = request.json or {}
+    download_url = data.get("download_url", "")
+    return jsonify(updater_service.apply_update_and_restart(download_url))
 
 
 # ==========================================

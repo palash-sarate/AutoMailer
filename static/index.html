@@ -64,6 +64,12 @@
       </nav>
 
       <div class="nav-actions">
+        <div class="version-indicator" id="nav-version-badge" title="App Version">
+          <span class="badge badge-secondary font-mono" id="nav-version-text">v1.0.1</span>
+        </div>
+        <button class="btn btn-warning btn-sm update-pill" id="btn-nav-update" style="display: none;" title="New version available!">
+          <i data-lucide="sparkles"></i> Update Available
+        </button>
         <button class="btn btn-ghost btn-icon" id="btn-theme-toggle" title="Toggle Light/Dark Theme">
           <i data-lucide="sun" class="sun-icon"></i>
           <i data-lucide="moon" class="moon-icon"></i>
@@ -530,6 +536,48 @@
               <small class="form-hint">Comma or semicolon-separated. Kept hidden from other recipients.</small>
             </div>
           </div>
+
+          <!-- Application & OTA Updates Card -->
+          <div class="card settings-card">
+            <h3 class="card-title"><i data-lucide="cpu"></i> Application &amp; Updates</h3>
+            <p class="text-secondary text-sm" style="margin-bottom: 1rem;">
+              Over-the-air automatic update engine synced with official GitHub releases.
+            </p>
+            <div class="form-group">
+              <div class="update-meta-grid">
+                <div class="update-meta-item">
+                  <span class="text-muted text-xs">CURRENT VERSION</span>
+                  <div class="font-mono text-highlight" id="settings-current-version">v1.0.1</div>
+                </div>
+                <div class="update-meta-item">
+                  <span class="text-muted text-xs">RUNTIME ENVIRONMENT</span>
+                  <div class="text-sm font-semibold" id="settings-runtime-mode">Detecting...</div>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions" style="margin-top: 1rem;">
+              <button class="btn btn-secondary" id="btn-check-updates">
+                <i data-lucide="refresh-cw"></i> Check for Updates
+              </button>
+            </div>
+
+            <!-- Dynamic Update Notice Box -->
+            <div class="update-notice-card" id="update-notice-card" style="display: none; margin-top: 1.25rem;">
+              <div class="update-notice-header">
+                <div class="update-title-group">
+                  <i data-lucide="sparkles" class="text-warning"></i>
+                  <h4 id="update-notice-title" style="margin: 0;">New Version Available!</h4>
+                </div>
+                <span class="badge badge-warning" id="update-notice-tag">v1.0.2</span>
+              </div>
+              <div class="update-notes-body" id="update-notes-body"></div>
+              <div class="update-actions" style="margin-top: 1rem;">
+                <button class="btn btn-primary btn-lg w-full" id="btn-apply-update">
+                  <i data-lucide="download-cloud"></i> Update &amp; Restart AutoMailer
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Connection Test Result Box -->
@@ -610,10 +658,34 @@
     </div>
   </div>
 
+  <!-- ========================================== -->
+  <!-- MODAL: OTA UPDATER PROGRESS -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="update-modal" style="display: none;">
+    <div class="modal-card modal-sm" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <i data-lucide="sparkles" class="modal-icon text-warning"></i>
+          <h3>AutoMailer Updater</h3>
+        </div>
+        <button class="btn btn-ghost btn-icon" id="btn-close-update-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body text-center" style="padding: 2.5rem 1.5rem; text-align: center;">
+        <div class="update-spinner-container" style="margin-bottom: 1.5rem;">
+          <i data-lucide="loader" class="spin text-accent" style="width: 48px; height: 48px; display: inline-block;"></i>
+        </div>
+        <h4 id="update-modal-status" style="margin-top: 0; font-size: 1.1rem;">Applying Over-the-Air Update...</h4>
+        <p class="text-secondary text-sm" id="update-modal-details" style="margin-top: 0.5rem; line-height: 1.5;">
+          Downloading the new binary from GitHub Releases. AutoMailer will replace the active executable and restart automatically.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Application Logic -->
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

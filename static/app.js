@@ -136,6 +136,22 @@ document.addEventListener("DOMContentLoaded", () => {
     batchStatTotal: document.getElementById("batch-stat-total"),
     batchConsoleLog: document.getElementById("batch-console-log"),
 
+    // Version & Updates
+    navVersionText: document.getElementById("nav-version-text"),
+    btnNavUpdate: document.getElementById("btn-nav-update"),
+    settingsCurrentVersion: document.getElementById("settings-current-version"),
+    settingsRuntimeMode: document.getElementById("settings-runtime-mode"),
+    btnCheckUpdates: document.getElementById("btn-check-updates"),
+    updateNoticeCard: document.getElementById("update-notice-card"),
+    updateNoticeTitle: document.getElementById("update-notice-title"),
+    updateNoticeTag: document.getElementById("update-notice-tag"),
+    updateNotesBody: document.getElementById("update-notes-body"),
+    btnApplyUpdate: document.getElementById("btn-apply-update"),
+    updateModal: document.getElementById("update-modal"),
+    btnCloseUpdateModal: document.getElementById("btn-close-update-modal"),
+    updateModalStatus: document.getElementById("update-modal-status"),
+    updateModalDetails: document.getElementById("update-modal-details"),
+
     // Toast
     toastContainer: document.getElementById("toast-container")
   };
@@ -150,11 +166,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function refreshAllData() {
+    await loadVersionStatus();
     await loadConfig();
     await loadFileList();
     await loadTemplate(state.currentTemplateFile);
     await loadCsv(state.currentCsvFile);
     await loadHistory();
+    checkAppUpdates(true); // Silent background check on launch
     renderIcons();
   }
 
@@ -1569,7 +1587,23 @@ document.addEventListener("DOMContentLoaded", () => {
     els.btnTestSmtp.addEventListener("click", testSmtpConnection);
     els.btnSaveSettings.addEventListener("click", saveConfig);
 
-    // 9. Attachment Events (Preview Tab & Attachments Tab)
+    // 9. OTA Updates Events
+    if (els.btnCheckUpdates) els.btnCheckUpdates.addEventListener("click", () => checkAppUpdates(false));
+    if (els.btnNavUpdate) {
+      els.btnNavUpdate.addEventListener("click", () => {
+        // Switch to settings tab and trigger update
+        const settingsTab = document.querySelector('.nav-tab[data-tab="tab-settings"]');
+        if (settingsTab) settingsTab.click();
+      });
+    }
+    if (els.btnApplyUpdate) els.btnApplyUpdate.addEventListener("click", applyAppUpdate);
+    if (els.btnCloseUpdateModal) {
+      els.btnCloseUpdateModal.addEventListener("click", () => {
+        if (els.updateModal) els.updateModal.style.display = "none";
+      });
+    }
+
+    // 10. Attachment Events (Preview Tab & Attachments Tab)
     [els.attachmentFileInput, els.attachmentsTabFileInput].forEach(input => {
       if (input) {
         input.addEventListener("change", (e) => {
@@ -1609,6 +1643,107 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     });
+  }
+
+  // ==========================================================================
+  // VERSION & OTA UPDATER FUNCTIONS
+  // ==========================================================================
+  async function loadVersionStatus() {
+    try {
+      const res = await fetch("/api/version/status");
+      const data = await res.json();
+      if (els.navVersionText) els.navVersionText.textContent = `v${data.version}`;
+      if (els.settingsCurrentVersion) els.settingsCurrentVersion.textContent = `v${data.version}`;
+      if (els.settingsRuntimeMode) {
+        els.settingsRuntimeMode.textContent = data.is_frozen
+          ? "Standalone Portable Executable (.exe)"
+          : "Developer Script Environment (Python)";
+      }
+    } catch (e) {}
+  }
+
+  async function checkAppUpdates(silent = false) {
+    if (els.btnCheckUpdates) {
+      els.btnCheckUpdates.disabled = true;
+      els.btnCheckUpdates.innerHTML = `<i data-lucide="loader" class="spin"></i> Checking...`;
+      renderIcons();
+    }
+
+    try {
+      const res = await fetch("/api/version/check");
+      const data = await res.json();
+
+      if (data.success && data.has_update) {
+        state.latestUpdate = data;
+        if (els.btnNavUpdate) {
+          els.btnNavUpdate.style.display = "inline-flex";
+          els.btnNavUpdate.innerHTML = `<i data-lucide="sparkles"></i> Update to ${data.latest_version}`;
+        }
+        if (els.updateNoticeCard) {
+          els.updateNoticeCard.style.display = "block";
+          if (els.updateNoticeTag) els.updateNoticeTag.textContent = data.latest_version;
+          if (els.updateNotesBody) els.updateNotesBody.textContent = data.release_notes || "No release notes provided.";
+          if (els.updateNoticeTitle) els.updateNoticeTitle.textContent = `New Release ${data.latest_version} Available!`;
+        }
+        if (!silent) {
+          showToast(`New version ${data.latest_version} available!`, "info");
+        }
+      } else {
+        state.latestUpdate = null;
+        if (els.btnNavUpdate) els.btnNavUpdate.style.display = "none";
+        if (els.updateNoticeCard) els.updateNoticeCard.style.display = "none";
+        if (!silent) {
+          showToast(`You are running the latest version (v${data.current_version || '1.0.1'}).`, "success");
+        }
+      }
+    } catch (err) {
+      if (!silent) {
+        showToast("Failed to check for updates. Check internet connection.", "error");
+      }
+    } finally {
+      if (els.btnCheckUpdates) {
+        els.btnCheckUpdates.disabled = false;
+        els.btnCheckUpdates.innerHTML = `<i data-lucide="refresh-cw"></i> Check for Updates`;
+        renderIcons();
+      }
+    }
+  }
+
+  async function applyAppUpdate() {
+    if (!state.latestUpdate || !state.latestUpdate.download_url) {
+      showToast("No download asset found for this release.", "error");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to download and install AutoMailer ${state.latestUpdate.latest_version}? The application will restart automatically.`)) {
+      return;
+    }
+
+    if (els.updateModal) els.updateModal.style.display = "flex";
+    if (els.updateModalStatus) els.updateModalStatus.textContent = `Downloading ${state.latestUpdate.latest_version}...`;
+    if (els.updateModalDetails) els.updateModalDetails.textContent = "Fetching update package from GitHub Releases. AutoMailer will replace the active binary and relaunch within seconds.";
+    renderIcons();
+
+    try {
+      const res = await fetch("/api/version/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ download_url: state.latestUpdate.download_url })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (els.updateModalStatus) els.updateModalStatus.textContent = "Update Installed! Restarting...";
+        if (els.updateModalDetails) els.updateModalDetails.textContent = "AutoMailer is now closing and launching the updated version. Please wait a moment...";
+        showToast("Update applied! Restarting application...", "success", 8000);
+      } else {
+        if (els.updateModal) els.updateModal.style.display = "none";
+        showToast(data.error || "Update failed", "error");
+      }
+    } catch (err) {
+      if (els.updateModal) els.updateModal.style.display = "none";
+      showToast("Failed to apply update: " + err.message, "error");
+    }
   }
 
   // Run initialization
