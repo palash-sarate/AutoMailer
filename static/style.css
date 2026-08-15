@@ -774,6 +774,40 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.th-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.btn-th-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.4;
+  transition: var(--transition);
+}
+
+.btn-th-delete i {
+  width: 12px;
+  height: 12px;
+}
+
+.th-content:hover .btn-th-delete {
+  opacity: 1;
+}
+
+.btn-th-delete:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
 .data-table td {
   padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--border-color);
@@ -978,6 +1012,85 @@ body {
   flex: 1;
   color: var(--text-primary);
   word-break: break-all;
+}
+
+.meta-row-interactive {
+  align-items: center;
+}
+
+.meta-chips-list {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.meta-chip-tag {
+  font-size: 0.65rem;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+.meta-chip-global {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+.meta-chip-global .meta-chip-tag {
+  background: var(--primary);
+  color: white;
+}
+
+.meta-chip-row {
+  background: rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+.meta-chip-row .meta-chip-tag {
+  background: var(--accent);
+  color: white;
+}
+
+.meta-chip-override {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.meta-chip-override .meta-chip-tag {
+  background: var(--warning);
+  color: black;
+}
+
+.meta-chip-remove {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: bold;
+  font-size: 0.85rem;
+  margin-left: 0.2rem;
+}
+.meta-chip-remove:hover {
+  color: var(--danger);
+}
+
+.btn-xs {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  border-radius: var(--radius-sm);
 }
 
 .email-rendered-viewport {

@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
     csvHeaders: [],
     csvRows: [], // [{ index, data: {}, is_sent: bool, sent_record: {} }]
     currentRowIndex: 0,
+    customPreviewCc: null,
+    customPreviewBcc: null,
     selectedAttachments: [],
     historyRecords: [],
     theme: localStorage.getItem("automailer_theme") || "dark"
@@ -57,6 +59,9 @@ document.addEventListener("DOMContentLoaded", () => {
     csvSearchInput: document.getElementById("csv-search-input"),
     btnAddRow: document.getElementById("btn-add-row"),
     btnAddColumn: document.getElementById("btn-add-column"),
+    btnDeleteColumn: document.getElementById("btn-delete-column"),
+    btnAddCcCol: document.getElementById("btn-add-cc-col"),
+    btnAddBccCol: document.getElementById("btn-add-bcc-col"),
     btnSaveCsv: document.getElementById("btn-save-csv"),
 
     // Attachments Tab
@@ -77,6 +82,10 @@ document.addEventListener("DOMContentLoaded", () => {
     checkForceResend: document.getElementById("check-force-resend"),
     previewSenderMeta: document.getElementById("preview-sender-meta"),
     previewRecipientMeta: document.getElementById("preview-recipient-meta"),
+    previewCcChips: document.getElementById("preview-cc-chips"),
+    previewBccChips: document.getElementById("preview-bcc-chips"),
+    btnEditPreviewCc: document.getElementById("btn-edit-preview-cc"),
+    btnEditPreviewBcc: document.getElementById("btn-edit-preview-bcc"),
     previewSubjectMeta: document.getElementById("preview-subject-meta"),
     previewBodyRendered: document.getElementById("preview-body-rendered"),
     previewAttachmentsList: document.getElementById("preview-attachments-list"),
@@ -102,6 +111,8 @@ document.addEventListener("DOMContentLoaded", () => {
     inputSmtpPort: document.getElementById("input-smtp-port"),
     inputDefaultSubject: document.getElementById("input-default-subject"),
     inputMailCompose: document.getElementById("input-mail-compose"),
+    inputGlobalCc: document.getElementById("input-global-cc"),
+    inputGlobalBcc: document.getElementById("input-global-bcc"),
     btnTestSmtp: document.getElementById("btn-test-smtp"),
     btnSaveSettings: document.getElementById("btn-save-settings"),
     smtpTestResultCard: document.getElementById("smtp-test-result-card"),
@@ -112,6 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnCloseBatchModal: document.getElementById("btn-close-batch-modal"),
     btnCancelBatch: document.getElementById("btn-cancel-batch"),
     btnStartBatch: document.getElementById("btn-start-batch"),
+    btnStopBatch: document.getElementById("btn-stop-batch"),
     batchTargetCsvBadge: document.getElementById("batch-target-csv-badge"),
     inputBatchDelay: document.getElementById("input-batch-delay"),
     checkBatchForceAll: document.getElementById("check-batch-force-all"),
@@ -205,6 +217,8 @@ document.addEventListener("DOMContentLoaded", () => {
       els.inputSmtpPort.value = data.smtp_port || "587";
       els.inputDefaultSubject.value = data.subject || "";
       els.inputMailCompose.value = data.mail_compose || "compose.md";
+      if (els.inputGlobalCc) els.inputGlobalCc.value = data.global_cc || "";
+      if (els.inputGlobalBcc) els.inputGlobalBcc.value = data.global_bcc || "";
 
       if (data.mail_compose) {
         state.currentTemplateFile = data.mail_compose;
@@ -222,7 +236,9 @@ document.addEventListener("DOMContentLoaded", () => {
       smtp_host: els.inputSmtpHost.value.trim(),
       smtp_port: els.inputSmtpPort.value.trim(),
       subject: els.inputDefaultSubject.value.trim(),
-      mail_compose: els.inputMailCompose.value.trim()
+      mail_compose: els.inputMailCompose.value.trim(),
+      global_cc: els.inputGlobalCc ? els.inputGlobalCc.value.trim() : "",
+      global_bcc: els.inputGlobalBcc ? els.inputGlobalBcc.value.trim() : ""
     };
 
     try {
@@ -625,14 +641,29 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     state.csvHeaders.forEach(header => {
       const th = document.createElement("th");
-      th.textContent = header;
-      if (header.toUpperCase() === "EMAIL") {
+      const isEmail = header.toUpperCase() === "EMAIL";
+      if (isEmail) {
         th.style.color = "var(--accent)";
       }
+      th.innerHTML = `
+        <div class="th-content">
+          <span>${header}</span>
+          ${!isEmail ? `<button type="button" class="btn-th-delete" title="Delete column '${header}'" data-col="${header}"><i data-lucide="x"></i></button>` : ''}
+        </div>
+      `;
       trHead.appendChild(th);
     });
     trHead.innerHTML += `<th style="width: 60px; text-align: center;">Actions</th>`;
     els.csvTableHead.appendChild(trHead);
+
+    // Header delete column click listeners
+    trHead.querySelectorAll(".btn-th-delete").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const col = btn.dataset.col;
+        deleteCsvColumn(col);
+      });
+    });
 
     // 2. Build Body Rows
     const q = filterQuery.toLowerCase().trim();
@@ -737,6 +768,42 @@ document.addEventListener("DOMContentLoaded", () => {
     showToast(`Added column $${cleanCol}`, "success");
   }
 
+  function deleteCsvColumn(colName) {
+    if (!colName) {
+      const deletableCols = state.csvHeaders.filter(h => h.toUpperCase() !== "EMAIL");
+      if (deletableCols.length === 0) {
+        showToast("No custom columns available to delete (EMAIL is required).", "warning");
+        return;
+      }
+      const choice = prompt(`Enter column name to delete (${deletableCols.join(", ")}):`);
+      if (!choice || !choice.trim()) return;
+      colName = choice.trim();
+    }
+
+    const idx = state.csvHeaders.findIndex(h => h.toUpperCase() === colName.toUpperCase());
+    if (idx === -1) {
+      showToast(`Column '${colName}' not found in CSV.`, "warning");
+      return;
+    }
+
+    const actualName = state.csvHeaders[idx];
+    if (actualName.toUpperCase() === "EMAIL") {
+      showToast("Cannot delete the mandatory 'EMAIL' column.", "error");
+      return;
+    }
+
+    if (!confirm(`Delete column '${actualName}' and remove its data from all rows?`)) return;
+
+    state.csvHeaders.splice(idx, 1);
+    state.csvRows.forEach(r => {
+      delete r.data[actualName];
+    });
+
+    renderVariableChips();
+    renderCsvTable(els.csvSearchInput.value);
+    showToast(`Deleted column '${actualName}'`, "info");
+  }
+
   function deleteCsvRow(index) {
     if (!confirm(`Delete row #${index + 1}?`)) return;
     state.csvRows.splice(index, 1);
@@ -772,6 +839,88 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       showToast("Error saving CSV file", "error");
     }
+  }
+
+  function addSpecialColumn(colName, sampleValue = "") {
+    if (state.csvHeaders.includes(colName)) {
+      showToast(`Column '${colName}' already exists in CSV!`, "info");
+      return;
+    }
+    state.csvHeaders.push(colName);
+    state.csvRows.forEach(r => {
+      if (r.data[colName] === undefined) {
+        r.data[colName] = "";
+      }
+    });
+    renderVariableChips();
+    renderCsvTable();
+    showToast(`Added '${colName}' column to CSV table`, "success");
+  }
+
+  function renderMetaChips(container, globalList = [], rowList = [], finalList = [], customVal = null, type = "cc") {
+    if (!container) return;
+    container.innerHTML = "";
+    if (!finalList || finalList.length === 0) {
+      container.innerHTML = `<span class="text-muted text-sm font-normal">None</span>`;
+      return;
+    }
+
+    finalList.forEach(email => {
+      const chip = document.createElement("span");
+      let isGlobal = globalList && globalList.includes(email);
+      let isRow = rowList && rowList.includes(email);
+      let isCustom = customVal !== null && (Array.isArray(customVal) ? customVal.includes(email) : customVal.includes(email));
+
+      let tagClass = "meta-chip-row";
+      let tagLabel = "Row";
+      if (isCustom) {
+        tagClass = "meta-chip-override";
+        tagLabel = "Custom";
+      } else if (isGlobal && !isRow) {
+        tagClass = "meta-chip-global";
+        tagLabel = "Global";
+      } else if (isGlobal && isRow) {
+        tagClass = "meta-chip-global";
+        tagLabel = "Global+Row";
+      }
+
+      chip.className = `meta-chip ${tagClass}`;
+      chip.innerHTML = `<span>${email}</span><span class="meta-chip-tag">${tagLabel}</span>`;
+      container.appendChild(chip);
+    });
+
+    if (customVal !== null) {
+      const resetBtn = document.createElement("button");
+      resetBtn.className = "btn btn-ghost btn-xs text-danger";
+      resetBtn.style.marginLeft = "4px";
+      resetBtn.innerHTML = `<i data-lucide="rotate-ccw"></i> Reset`;
+      resetBtn.title = "Reset to CSV/Global default";
+      resetBtn.onclick = () => {
+        if (type === "cc") state.customPreviewCc = null;
+        if (type === "bcc") state.customPreviewBcc = null;
+        renderPreviewCurrentRow();
+      };
+      container.appendChild(resetBtn);
+    }
+  }
+
+  function editPreviewRecipient(type) {
+    const isCc = type === "cc";
+    const currentVal = isCc ? (state.customPreviewCc || "") : (state.customPreviewBcc || "");
+    const promptMsg = isCc
+      ? "Enter custom CC emails for this preview (comma-separated, or leave blank to reset):"
+      : "Enter custom BCC emails for this preview (comma-separated, or leave blank to reset):";
+    const input = prompt(promptMsg, Array.isArray(currentVal) ? currentVal.join(", ") : currentVal);
+    if (input === null) return;
+    const clean = input.trim();
+    if (!clean) {
+      if (isCc) state.customPreviewCc = null;
+      else state.customPreviewBcc = null;
+    } else {
+      if (isCc) state.customPreviewCc = clean;
+      else state.customPreviewBcc = clean;
+    }
+    renderPreviewCurrentRow();
   }
 
   // 5. Preview & Single Send Center
@@ -825,7 +974,9 @@ document.addEventListener("DOMContentLoaded", () => {
           template: els.templateCodeEditor.value || state.templateContent,
           row: rowData,
           subject: state.config.subject,
-          is_html: isHtml
+          is_html: isHtml,
+          cc: state.customPreviewCc,
+          bcc: state.customPreviewBcc
         })
       });
       const preview = await res.json();
@@ -833,6 +984,9 @@ document.addEventListener("DOMContentLoaded", () => {
       els.previewRecipientMeta.textContent = preview.recipient || "(No EMAIL specified)";
       els.previewSubjectMeta.textContent = preview.subject || "(No Subject)";
       els.previewBodyRendered.innerHTML = preview.body_html || marked.parse(preview.body_text || "");
+
+      renderMetaChips(els.previewCcChips, preview.global_cc, preview.row_cc, preview.cc, state.customPreviewCc, "cc");
+      renderMetaChips(els.previewBccChips, preview.global_bcc, preview.row_bcc, preview.bcc, state.customPreviewBcc, "bcc");
     } catch (err) {
       console.error("Preview render error:", err);
     }
@@ -895,7 +1049,9 @@ document.addEventListener("DOMContentLoaded", () => {
       csv_filename: state.currentCsvFile,
       force_send: isForce,
       is_html: state.currentTemplateFile.endsWith(".html"),
-      attachments: state.selectedAttachments
+      attachments: state.selectedAttachments,
+      cc: state.customPreviewCc,
+      bcc: state.customPreviewBcc
     };
 
     try {
@@ -934,7 +1090,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 6. Batch Send Campaign
-  let batchEventSource = null;
+  let currentBatchAbortController = null;
+  let currentBatchId = null;
+  let isBatchRunning = false;
 
   function openBatchModal() {
     const total = state.csvRows.length;
@@ -950,6 +1108,8 @@ document.addEventListener("DOMContentLoaded", () => {
     els.batchProgressStatusText.textContent = `${pending} pending emails ready to send`;
     els.batchConsoleLog.innerHTML = `<div class="console-line text-muted">[System] Ready. Target CSV: ${state.currentCsvFile} (${pending} pending).</div>`;
 
+    if (els.btnStopBatch) els.btnStopBatch.style.display = "none";
+    els.btnStartBatch.style.display = "inline-flex";
     els.btnStartBatch.disabled = false;
     els.btnStartBatch.innerHTML = `<i data-lucide="play"></i> Start Campaign`;
     els.batchModal.style.display = "flex";
@@ -960,8 +1120,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const isForceAll = els.checkBatchForceAll.checked;
     const delaySec = parseFloat(els.inputBatchDelay.value) || 1.5;
 
-    els.btnStartBatch.disabled = true;
-    els.btnStartBatch.innerHTML = `<i data-lucide="loader" class="spin"></i> Running Campaign...`;
+    isBatchRunning = true;
+    currentBatchId = "batch_" + Date.now();
+    currentBatchAbortController = new AbortController();
+
+    els.btnStartBatch.style.display = "none";
+    if (els.btnStopBatch) {
+      els.btnStopBatch.style.display = "inline-flex";
+      els.btnStopBatch.disabled = false;
+      els.btnStopBatch.innerHTML = `<i data-lucide="square"></i> Stop Campaign`;
+    }
     renderIcons();
 
     const payload = {
@@ -971,13 +1139,15 @@ document.addEventListener("DOMContentLoaded", () => {
       force_all: isForceAll,
       is_html: state.currentTemplateFile.endsWith(".html"),
       attachments: state.selectedAttachments,
-      delay_seconds: delaySec
+      delay_seconds: delaySec,
+      batch_id: currentBatchId
     };
 
     fetch("/api/send/batch-stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: currentBatchAbortController.signal
     }).then(response => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -985,10 +1155,9 @@ document.addEventListener("DOMContentLoaded", () => {
       function readChunk() {
         reader.read().then(({ done, value }) => {
           if (done) {
-            els.btnStartBatch.disabled = false;
-            els.btnStartBatch.innerHTML = `<i data-lucide="check"></i> Completed`;
-            renderIcons();
-            refreshAllData();
+            if (isBatchRunning) {
+              finishBatchUI("complete");
+            }
             return;
           }
 
@@ -1004,16 +1173,69 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           readChunk();
+        }).catch(err => {
+          if (err.name !== "AbortError") {
+            logConsole(`[System] Connection error: ${err.message}`, "error");
+          }
+          finishBatchUI("stopped");
         });
       }
 
       readChunk();
     }).catch(err => {
-      showToast("Batch transmission failed", "error");
-      els.btnStartBatch.disabled = false;
-      els.btnStartBatch.innerHTML = `<i data-lucide="play"></i> Start Campaign`;
-      renderIcons();
+      if (err.name !== "AbortError") {
+        showToast("Batch transmission failed", "error");
+      }
+      finishBatchUI("stopped");
     });
+  }
+
+  async function stopBatchCampaign() {
+    if (!isBatchRunning) return;
+    if (!confirm("Are you sure you want to stop the ongoing email dispatch? Emails already sent will be kept.")) return;
+
+    if (els.btnStopBatch) {
+      els.btnStopBatch.disabled = true;
+      els.btnStopBatch.innerHTML = `<i data-lucide="loader" class="spin"></i> Stopping...`;
+      renderIcons();
+    }
+
+    logConsole("[System] 🛑 Stop requested. Halting transmission...", "warning");
+
+    try {
+      await fetch("/api/send/batch-stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batch_id: currentBatchId })
+      });
+    } catch (e) {}
+
+    if (currentBatchAbortController) {
+      try { currentBatchAbortController.abort(); } catch (e) {}
+    }
+
+    finishBatchUI("stopped");
+  }
+
+  function finishBatchUI(status = "complete") {
+    isBatchRunning = false;
+    currentBatchAbortController = null;
+
+    if (els.btnStopBatch) els.btnStopBatch.style.display = "none";
+    els.btnStartBatch.style.display = "inline-flex";
+    els.btnStartBatch.disabled = false;
+
+    if (status === "complete") {
+      els.btnStartBatch.innerHTML = `<i data-lucide="check"></i> Completed`;
+    } else {
+      els.btnStartBatch.innerHTML = `<i data-lucide="play"></i> Resume / Restart`;
+    }
+
+    renderIcons();
+    updateCsvStats();
+    renderCsvTable();
+    renderPreviewCurrentRow();
+    loadHistory();
   }
 
   function handleBatchEvent(event) {
@@ -1044,16 +1266,18 @@ document.addEventListener("DOMContentLoaded", () => {
         els.batchStatFailed.textContent = count;
         logConsole(`[${event.current}/${event.total}] ❌ Failed ${event.email}: ${event.error}`, "error");
       }
+    } else if (event.type === "stopped") {
+      logConsole(`[System] 🛑 Campaign STOPPED by user! Sent: ${event.sent} | Skipped: ${event.skipped} | Failed: ${event.failed}`, "warning");
+      els.batchProgressStatusText.textContent = `Campaign Stopped (${event.sent} sent, ${event.skipped} skipped, ${event.failed} failed)`;
+      showToast("Batch campaign was stopped.", "warning");
+      finishBatchUI("stopped");
     } else if (event.type === "complete") {
       els.batchProgressFill.style.width = "100%";
       els.batchProgressPercent.textContent = "100%";
       els.batchProgressStatusText.textContent = `Campaign Complete! Sent: ${event.sent}, Skipped: ${event.skipped}, Failed: ${event.failed}`;
       logConsole(`[System] 🏁 Campaign finished! Sent: ${event.sent} | Skipped: ${event.skipped} | Failed: ${event.failed}`, "success");
-      updateCsvStats();
-      renderCsvTable();
-      renderPreviewCurrentRow();
-      loadHistory();
       showToast("Batch campaign completed!", "success");
+      finishBatchUI("complete");
     }
   }
 
@@ -1245,6 +1469,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.btnAddRow.addEventListener("click", addCsvRow);
     els.btnAddColumn.addEventListener("click", addCsvColumn);
+    if (els.btnDeleteColumn) els.btnDeleteColumn.addEventListener("click", () => deleteCsvColumn());
+    if (els.btnAddCcCol) els.btnAddCcCol.addEventListener("click", () => addSpecialColumn("CC", "manager@example.com"));
+    if (els.btnAddBccCol) els.btnAddBccCol.addEventListener("click", () => addSpecialColumn("BCC", "crm@example.com"));
     els.btnSaveCsv.addEventListener("click", saveCsv);
 
     els.csvSearchInput.addEventListener("input", (e) => {
@@ -1252,9 +1479,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // 5. Preview & Send Events
+    if (els.btnEditPreviewCc) els.btnEditPreviewCc.addEventListener("click", () => editPreviewRecipient("cc"));
+    if (els.btnEditPreviewBcc) els.btnEditPreviewBcc.addEventListener("click", () => editPreviewRecipient("bcc"));
+
     els.btnPrevRow.addEventListener("click", () => {
       if (state.currentRowIndex > 0) {
         state.currentRowIndex--;
+        state.customPreviewCc = null;
+        state.customPreviewBcc = null;
         renderPreviewCurrentRow();
       }
     });
@@ -1262,12 +1494,16 @@ document.addEventListener("DOMContentLoaded", () => {
     els.btnNextRow.addEventListener("click", () => {
       if (state.currentRowIndex < state.csvRows.length - 1) {
         state.currentRowIndex++;
+        state.customPreviewCc = null;
+        state.customPreviewBcc = null;
         renderPreviewCurrentRow();
       }
     });
 
     els.selectRowJump.addEventListener("change", (e) => {
       state.currentRowIndex = parseInt(e.target.value, 10);
+      state.customPreviewCc = null;
+      state.customPreviewBcc = null;
       renderPreviewCurrentRow();
     });
 
@@ -1288,9 +1524,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 6. Batch Modal Events
     els.btnOpenBatchModal.addEventListener("click", openBatchModal);
-    els.btnCloseBatchModal.addEventListener("click", () => els.batchModal.style.display = "none");
-    els.btnCancelBatch.addEventListener("click", () => els.batchModal.style.display = "none");
+
+    const tryCloseBatchModal = () => {
+      if (isBatchRunning) {
+        if (confirm("A campaign is currently in progress. Do you want to stop it and close?")) {
+          stopBatchCampaign();
+          els.batchModal.style.display = "none";
+        }
+      } else {
+        els.batchModal.style.display = "none";
+      }
+    };
+
+    els.btnCloseBatchModal.addEventListener("click", tryCloseBatchModal);
+    els.btnCancelBatch.addEventListener("click", tryCloseBatchModal);
     els.btnStartBatch.addEventListener("click", startBatchCampaign);
+    if (els.btnStopBatch) els.btnStopBatch.addEventListener("click", stopBatchCampaign);
 
     // 7. History Events
     els.btnRefreshHistory.addEventListener("click", loadHistory);

@@ -119,5 +119,36 @@ class BulkEmailSenderTestCase(unittest.TestCase):
         if os.path.exists("uploaded_test.csv"):
             os.remove("uploaded_test.csv")
 
+    def test_cc_bcc_preview_and_parsing(self):
+        import mailer_service
+        # Test parse_email_list
+        emails = mailer_service.parse_email_list("a@b.com, c@d.com; manager@test.com, $BOSS", {"BOSS": "boss@test.com"})
+        self.assertIn("a@b.com", emails)
+        self.assertIn("c@d.com", emails)
+        self.assertIn("manager@test.com", emails)
+        self.assertIn("boss@test.com", emails)
+
+        # Test preview with CC and BCC
+        res = self.client.post("/api/preview", json={
+            "template": "Subject: Test\n\nBody",
+            "row": {
+                "EMAIL": "recipient@test.com",
+                "CC": "row_cc@test.com",
+                "BCC": "row_bcc@test.com"
+            }
+        })
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("cc", data)
+        self.assertIn("bcc", data)
+        self.assertIn("row_cc@test.com", data["cc"])
+        self.assertIn("row_bcc@test.com", data["bcc"])
+
+    def test_batch_stop_endpoint(self):
+        res = self.client.post("/api/send/batch-stop", json={"batch_id": "test_batch_123"})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+
 if __name__ == "__main__":
     unittest.main()

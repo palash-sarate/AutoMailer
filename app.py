@@ -289,12 +289,16 @@ def preview_email():
     row_dict = data.get("row", {})
     subject_override = data.get("subject", None)
     is_html = data.get("is_html", False)
+    override_cc = data.get("cc", None)
+    override_bcc = data.get("bcc", None)
 
     preview = mailer_service.render_email_preview(
         template_str=template_str,
         row_dict=row_dict,
         default_subject=subject_override,
-        is_html=is_html
+        is_html=is_html,
+        override_cc=override_cc,
+        override_bcc=override_bcc
     )
     return jsonify(preview)
 
@@ -309,6 +313,8 @@ def send_single():
     force_send = bool(data.get("force_send", False))
     is_html = data.get("is_html", False)
     attachments = data.get("attachments", [])
+    override_cc = data.get("cc", None)
+    override_bcc = data.get("bcc", None)
 
     result = mailer_service.send_single_email(
         row_dict=row_dict,
@@ -317,14 +323,30 @@ def send_single():
         csv_filename=csv_filename,
         force_send=force_send,
         is_html=is_html,
-        selected_attachments=attachments
+        selected_attachments=attachments,
+        override_cc=override_cc,
+        override_bcc=override_bcc
     )
     return jsonify(result)
 
 
+ACTIVE_BATCH_CANCELLATIONS = set()
+
+
+@app.route("/api/send/batch-stop", methods=["POST"])
+def stop_batch():
+    """Signals an ongoing batch campaign to halt immediately."""
+    data = request.json or {}
+    batch_id = str(data.get("batch_id", "")).strip()
+    if batch_id:
+        ACTIVE_BATCH_CANCELLATIONS.add(batch_id)
+    ACTIVE_BATCH_CANCELLATIONS.add("__ALL__")
+    return jsonify({"success": True, "message": "Batch cancellation signal recorded."})
+
+
 @app.route("/api/send/batch-stream", methods=["POST"])
 def send_batch_stream():
-    """Server-Sent Events stream for batch email sending with live progress."""
+    """Server-Sent Events stream for batch email sending with live progress and cancel support."""
     req_data = request.json or {}
     template_str = req_data.get("template", "")
     rows = req_data.get("rows", [])
@@ -333,48 +355,104 @@ def send_batch_stream():
     is_html = bool(req_data.get("is_html", False))
     attachments = req_data.get("attachments", [])
     delay = float(req_data.get("delay_seconds", 1.0))
+    global_cc = req_data.get("global_cc", None)
+    global_bcc = req_data.get("global_bcc", None)
+    batch_id = str(req_data.get("batch_id", "")).strip()
+
+    # Clear any previous cancellation for this batch_id
+    if batch_id:
+        ACTIVE_BATCH_CANCELLATIONS.discard(batch_id)
+    ACTIVE_BATCH_CANCELLATIONS.discard("__ALL__")
 
     def generate_events():
         total = len(rows)
         sent_count = 0
         skipped_count = 0
         failed_count = 0
+        was_stopped = False
+        smtp_client = None
 
-        yield f"data: {json.dumps({'type': 'start', 'total': total})}\n\n"
+        yield f"data: {json.dumps({'type': 'start', 'total': total, 'batch_id': batch_id})}\n\n"
 
-        for idx, item in enumerate(rows):
-            row_idx = item.get("index", idx)
-            row_dict = item.get("data", item)
-            email = row_dict.get("EMAIL", row_dict.get("email", "")).strip()
+        # Pre-connect SMTP client if there are rows to send
+        try:
+            smtp_client = mailer_service.create_smtp_client()
+        except Exception as e:
+            # If initial connection fails, we'll try per-row fallback
+            smtp_client = None
 
-            # Duplicate check
-            is_sent, prev = history_manager.is_row_sent(csv_filename, row_idx, email, row_dict)
-            if is_sent and not force_all:
-                skipped_count += 1
-                yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'skipped', 'email': email, 'index': row_idx, 'message': 'Skipped (Already sent)'})}\n\n"
-                continue
+        try:
+            for idx, item in enumerate(rows):
+                # Check for cancellation before processing this row
+                if (batch_id and batch_id in ACTIVE_BATCH_CANCELLATIONS) or "__ALL__" in ACTIVE_BATCH_CANCELLATIONS:
+                    if batch_id:
+                        ACTIVE_BATCH_CANCELLATIONS.discard(batch_id)
+                    ACTIVE_BATCH_CANCELLATIONS.discard("__ALL__")
+                    was_stopped = True
+                    yield f"data: {json.dumps({'type': 'stopped', 'total': total, 'sent': sent_count, 'skipped': skipped_count, 'failed': failed_count, 'stopped_at': idx, 'message': 'Campaign stopped by user.'})}\n\n"
+                    break
 
-            result = mailer_service.send_single_email(
-                row_dict=row_dict,
-                template_str=template_str,
-                row_index=row_idx,
-                csv_filename=csv_filename,
-                force_send=force_all,
-                is_html=is_html,
-                selected_attachments=attachments
-            )
+                row_idx = item.get("index", idx)
+                row_dict = item.get("data", item)
+                email = row_dict.get("EMAIL", row_dict.get("email", "")).strip()
 
-            if result.get("success"):
-                sent_count += 1
-                yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'sent', 'email': email, 'index': row_idx, 'record': result.get('record')})}\n\n"
-            else:
-                failed_count += 1
-                yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'failed', 'email': email, 'index': row_idx, 'error': result.get('error')})}\n\n"
+                # Duplicate check
+                is_sent, prev = history_manager.is_row_sent(csv_filename, row_idx, email, row_dict)
+                if is_sent and not force_all:
+                    skipped_count += 1
+                    yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'skipped', 'email': email, 'index': row_idx, 'message': 'Skipped (Already sent)'})}\n\n"
+                    continue
 
-            if idx < total - 1 and delay > 0:
-                time.sleep(delay)
+                # If smtp_client was not created or was dropped, try to create it
+                if smtp_client is None:
+                    try:
+                        smtp_client = mailer_service.create_smtp_client()
+                    except Exception:
+                        smtp_client = None
 
-        yield f"data: {json.dumps({'type': 'complete', 'total': total, 'sent': sent_count, 'skipped': skipped_count, 'failed': failed_count})}\n\n"
+                result = mailer_service.send_single_email(
+                    row_dict=row_dict,
+                    template_str=template_str,
+                    row_index=row_idx,
+                    csv_filename=csv_filename,
+                    force_send=force_all,
+                    is_html=is_html,
+                    selected_attachments=attachments,
+                    override_cc=global_cc,
+                    override_bcc=global_bcc,
+                    smtp_client=smtp_client
+                )
+
+                if result.get("success"):
+                    sent_count += 1
+                    yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'sent', 'email': email, 'index': row_idx, 'record': result.get('record'), 'cc': result.get('cc', []), 'bcc': result.get('bcc', [])})}\n\n"
+                else:
+                    # If failed, drop the cached client so next row recreates a fresh connection
+                    if smtp_client:
+                        try:
+                            smtp_client.quit()
+                        except Exception:
+                            pass
+                        smtp_client = None
+                    failed_count += 1
+                    yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'failed', 'email': email, 'index': row_idx, 'error': result.get('error')})}\n\n"
+
+                if idx < total - 1 and delay > 0:
+                    # Responsive interval sleep to catch cancellation immediately
+                    sleep_start = time.time()
+                    while time.time() - sleep_start < delay:
+                        if (batch_id and batch_id in ACTIVE_BATCH_CANCELLATIONS) or "__ALL__" in ACTIVE_BATCH_CANCELLATIONS:
+                            break
+                        time.sleep(0.08)
+
+            if not was_stopped:
+                yield f"data: {json.dumps({'type': 'complete', 'total': total, 'sent': sent_count, 'skipped': skipped_count, 'failed': failed_count})}\n\n"
+        finally:
+            if smtp_client:
+                try:
+                    smtp_client.quit()
+                except Exception:
+                    pass
 
     return Response(generate_events(), mimetype="text/event-stream")
 

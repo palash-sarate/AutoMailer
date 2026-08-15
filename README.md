@@ -16,7 +16,8 @@
 | 🎨 **Interactive Web Dashboard** | Sleek glassmorphic dark/light UI with real-time feedback and tabbed navigation. |
 | 📝 **Live Template Editor** | Edit Markdown (`compose.md`) or HTML templates with split-view live rendered preview and click-to-insert variable tokens. |
 | 📊 **CSV Data Manager** | Full interactive grid to view, search, and inline-edit recipient records, with options to add/delete rows and columns. |
-| 👁️ **Row-by-Row Preview** | Inspect the exact rendered email (`From`, `To`, `Subject`, `Body`) for each recipient before sending. |
+| 👁️ **Row-by-Row Preview** | Inspect the exact rendered email (`From`, `To`, `Cc`, `Bcc`, `Subject`, `Body`) for each recipient before sending. |
+| 👥 **Flexible CC & BCC Support** | Configure **Global CC/BCC** (for all campaign emails) or per-recipient **Row CC/BCC** directly in CSV columns (`CC` and `BCC`), with quick override buttons in Preview. |
 | 🛡️ **Duplicate Send Protection** | Built-in tracking (`sent_history.json`) records sent timestamps. Accidental resends are locked unless "Force Resend" is explicitly enabled. |
 | 📎 **Attachments Manager** | Drag & drop file uploads directly into the `ATTACH/` folder, select which files to include, and support per-row dynamic attachments via an `ATTACHMENT` column in CSV. |
 | ⚡ **1-Click SMTP Verification** | Test your Gmail / SMTP connection and credentials directly in the Settings tab before launching a campaign. |

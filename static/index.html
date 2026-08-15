@@ -162,6 +162,9 @@
             <input type="file" id="input-upload-csv" accept=".csv" style="display: none;">
             <button class="btn btn-secondary" id="btn-add-row"><i data-lucide="plus-circle"></i> Add Row</button>
             <button class="btn btn-secondary" id="btn-add-column"><i data-lucide="columns"></i> Add Column</button>
+            <button class="btn btn-secondary" id="btn-delete-column" title="Delete a custom column"><i data-lucide="trash-2"></i> Del Col</button>
+            <button class="btn btn-secondary" id="btn-add-cc-col"><i data-lucide="copy"></i> + CC Col</button>
+            <button class="btn btn-secondary" id="btn-add-bcc-col"><i data-lucide="eye-off"></i> + BCC Col</button>
             <button class="btn btn-primary" id="btn-save-csv"><i data-lucide="save"></i> Save CSV</button>
           </div>
         </div>
@@ -327,6 +330,24 @@
                 <span class="meta-label">To:</span>
                 <span class="meta-value font-mono text-highlight" id="preview-recipient-meta">recipient@example.com</span>
               </div>
+              <div class="meta-row meta-row-interactive" id="preview-cc-row">
+                <span class="meta-label">Cc:</span>
+                <div class="meta-chips-list" id="preview-cc-chips">
+                  <span class="text-muted text-sm font-normal">None</span>
+                </div>
+                <button type="button" class="btn btn-ghost btn-xs" id="btn-edit-preview-cc" title="Edit CC recipients for this email">
+                  <i data-lucide="edit-2"></i> Edit
+                </button>
+              </div>
+              <div class="meta-row meta-row-interactive" id="preview-bcc-row">
+                <span class="meta-label">Bcc:</span>
+                <div class="meta-chips-list" id="preview-bcc-chips">
+                  <span class="text-muted text-sm font-normal">None</span>
+                </div>
+                <button type="button" class="btn btn-ghost btn-xs" id="btn-edit-preview-bcc" title="Edit BCC recipients for this email">
+                  <i data-lucide="edit-2"></i> Edit
+                </button>
+              </div>
               <div class="meta-row">
                 <span class="meta-label">Subject:</span>
                 <span class="meta-value font-semibold" id="preview-subject-meta">Email Subject Line</span>
@@ -491,6 +512,24 @@
               <input type="text" id="input-mail-compose" class="form-input" placeholder="compose.md">
             </div>
           </div>
+
+          <!-- Global CC & BCC Settings Card -->
+          <div class="card settings-card">
+            <h3 class="card-title"><i data-lucide="copy"></i> Global CC &amp; BCC</h3>
+            <p class="text-secondary text-sm" style="margin-bottom: 1rem;">
+              Specify email addresses to automatically copy on <strong>every outgoing email</strong> across all campaigns.
+            </p>
+            <div class="form-group">
+              <label for="input-global-cc">Global CC (Carbon Copy):</label>
+              <input type="text" id="input-global-cc" class="form-input" placeholder="e.g. manager@example.com, audit@example.com">
+              <small class="form-hint">Comma or semicolon-separated. Visible to all recipients.</small>
+            </div>
+            <div class="form-group">
+              <label for="input-global-bcc">Global BCC (Blind Carbon Copy):</label>
+              <input type="text" id="input-global-bcc" class="form-input" placeholder="e.g. crm@company.com, archive@example.com">
+              <small class="form-hint">Comma or semicolon-separated. Kept hidden from other recipients.</small>
+            </div>
+          </div>
         </div>
 
         <!-- Connection Test Result Box -->
@@ -561,6 +600,9 @@
 
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-cancel-batch">Close</button>
+        <button class="btn btn-danger btn-lg" id="btn-stop-batch" style="display: none;">
+          <i data-lucide="square"></i> Stop Campaign
+        </button>
         <button class="btn btn-primary btn-lg" id="btn-start-batch">
           <i data-lucide="play"></i> Start Campaign
         </button>
