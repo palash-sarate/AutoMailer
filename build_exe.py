@@ -5,7 +5,7 @@ import shutil
 
 def build_executable():
     print("==================================================")
-    print("  AutoMailer Pro - Standalone Executable Builder   ")
+    print("  AutoMailer - Standalone Executable Builder   ")
     print("==================================================")
 
     # 1. Ensure PyInstaller is installed

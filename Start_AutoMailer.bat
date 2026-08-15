@@ -1,9 +1,9 @@
 @echo off
-title AutoMailer Pro Dashboard
+title AutoMailer Dashboard
 cd /d "%~dp0"
 
 echo ========================================================
-echo   Launching AutoMailer Pro Dashboard...
+echo   Launching AutoMailer Dashboard...
 echo ========================================================
 
 REM Check if .venv exists

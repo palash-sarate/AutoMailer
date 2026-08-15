@@ -1,4 +1,4 @@
-# 📬 AutoMailer Pro - Bulk Email Sender
+# 📬 AutoMailer - Bulk Email Sender
 
 > A modern, full-featured Bulk Email Sender with an interactive Web Dashboard, live Markdown/HTML templating, CSV data manager, row-by-row email preview, duplicate prevention tracking, drag-and-drop attachments, and portable executable packaging.
 

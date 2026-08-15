@@ -1,5 +1,5 @@
 /**
- * Bulk Email Sender Pro - Frontend Application Engine
+ * Bulk Email Sender - Frontend Application Engine
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -137,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
     batchConsoleLog: document.getElementById("batch-console-log"),
 
     // Version & Updates
-    navVersionText: document.getElementById("nav-version-text"),
+    brandVersionBadge: document.getElementById("brand-version-badge"),
     btnNavUpdate: document.getElementById("btn-nav-update"),
     settingsCurrentVersion: document.getElementById("settings-current-version"),
     settingsRuntimeMode: document.getElementById("settings-runtime-mode"),
@@ -1652,7 +1652,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/version/status");
       const data = await res.json();
-      if (els.navVersionText) els.navVersionText.textContent = `v${data.version}`;
+      if (els.brandVersionBadge) els.brandVersionBadge.textContent = `v${data.version}`;
       if (els.settingsCurrentVersion) els.settingsCurrentVersion.textContent = `v${data.version}`;
       if (els.settingsRuntimeMode) {
         els.settingsRuntimeMode.textContent = data.is_frozen

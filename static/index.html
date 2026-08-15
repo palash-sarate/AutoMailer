@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bulk Email Sender | Pro Dashboard</title>
+  <title>AutoMailer | Dashboard</title>
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +17,7 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <!-- Main Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <div class="app-layout">
@@ -29,7 +29,7 @@
         </div>
         <div class="brand-text">
           <span class="brand-title">AutoMailer</span>
-          <span class="brand-badge">PRO</span>
+          <span class="brand-badge font-mono" id="brand-version-badge">v1.0.4</span>
         </div>
       </div>
 
@@ -64,9 +64,6 @@
       </nav>
 
       <div class="nav-actions">
-        <div class="version-indicator" id="nav-version-badge" title="App Version">
-          <span class="badge badge-secondary font-mono" id="nav-version-text">v1.0.1</span>
-        </div>
         <button class="btn btn-warning btn-sm update-pill" id="btn-nav-update" style="display: none;" title="New version available!">
           <i data-lucide="sparkles"></i> Update Available
         </button>
@@ -686,6 +683,6 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Application Logic -->
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
