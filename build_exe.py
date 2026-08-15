@@ -35,6 +35,7 @@ def build_executable():
         "--hidden-import=email",
         "--hidden-import=smtplib",
         "--hidden-import=flask",
+        "--hidden-import=logger_config",
         "app.py"
     ]
 

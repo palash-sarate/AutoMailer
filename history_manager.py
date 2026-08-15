@@ -4,6 +4,10 @@ import os
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
+from logger_config import get_logger
+
+logger = get_logger("history_manager")
+
 HISTORY_FILE = "sent_history.json"
 
 
@@ -25,7 +29,8 @@ def load_history() -> Dict[str, Any]:
     try:
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to parse sent_history.json: %s", e)
         return {}
 
 
@@ -35,6 +40,7 @@ def save_history(history: Dict[str, Any]) -> None:
     with open(temp_file, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, ensure_ascii=False)
     os.replace(temp_file, HISTORY_FILE)
+    logger.debug("Saved %d tracking records to %s", len(history), HISTORY_FILE)
 
 
 def is_row_sent(csv_filename: str, row_index: int, email: str, row_data: Optional[Dict[str, Any]] = None) -> Tuple[bool, Optional[Dict[str, Any]]]:

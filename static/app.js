@@ -1098,6 +1098,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const total = state.csvRows.length;
     const sent = state.csvRows.filter(r => r.is_sent).length;
     const pending = total - sent;
+    isBatchCompleted = false;
 
     els.batchStatTotal.textContent = total;
     els.batchStatSent.textContent = sent;
@@ -1111,9 +1112,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (els.btnStopBatch) els.btnStopBatch.style.display = "none";
     els.btnStartBatch.style.display = "inline-flex";
     els.btnStartBatch.disabled = false;
+    els.btnStartBatch.className = "btn btn-primary btn-lg";
     els.btnStartBatch.innerHTML = `<i data-lucide="play"></i> Start Campaign`;
     els.batchModal.style.display = "flex";
     renderIcons();
+  }
+
+  function handleBatchPrimaryClick() {
+    if (isBatchCompleted) {
+      els.batchModal.style.display = "none";
+      return;
+    }
+    startBatchCampaign();
   }
 
   function startBatchCampaign() {
@@ -1121,6 +1131,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const delaySec = parseFloat(els.inputBatchDelay.value) || 1.5;
 
     isBatchRunning = true;
+    isBatchCompleted = false;
     currentBatchId = "batch_" + Date.now();
     currentBatchAbortController = new AbortController();
 
@@ -1226,8 +1237,12 @@ document.addEventListener("DOMContentLoaded", () => {
     els.btnStartBatch.disabled = false;
 
     if (status === "complete") {
-      els.btnStartBatch.innerHTML = `<i data-lucide="check"></i> Completed`;
+      isBatchCompleted = true;
+      els.btnStartBatch.className = "btn btn-success btn-lg";
+      els.btnStartBatch.innerHTML = `<i data-lucide="check-circle"></i> Done (Close)`;
     } else {
+      isBatchCompleted = false;
+      els.btnStartBatch.className = "btn btn-primary btn-lg";
       els.btnStartBatch.innerHTML = `<i data-lucide="play"></i> Resume / Restart`;
     }
 
@@ -1538,7 +1553,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.btnCloseBatchModal.addEventListener("click", tryCloseBatchModal);
     els.btnCancelBatch.addEventListener("click", tryCloseBatchModal);
-    els.btnStartBatch.addEventListener("click", startBatchCampaign);
+    els.btnStartBatch.addEventListener("click", handleBatchPrimaryClick);
     if (els.btnStopBatch) els.btnStopBatch.addEventListener("click", stopBatchCampaign);
 
     // 7. History Events

@@ -12,6 +12,9 @@ from flask import Flask, Response, jsonify, render_template_string, request, sen
 
 import history_manager
 import mailer_service
+from logger_config import get_logger
+
+logger = get_logger("app")
 
 # Base directory determination for portable executable or regular script
 def get_base_dir():
@@ -26,6 +29,7 @@ def get_static_dir():
 
 # Ensure working directory is next to executable or script
 os.chdir(get_base_dir())
+logger.info("AutoMailer backend initialized. Base Dir: %s", get_base_dir())
 
 app = Flask(__name__, static_folder=get_static_dir(), static_url_path="")
 
@@ -338,6 +342,7 @@ def stop_batch():
     """Signals an ongoing batch campaign to halt immediately."""
     data = request.json or {}
     batch_id = str(data.get("batch_id", "")).strip()
+    logger.warning("Batch stop signal received for batch_id=%s", batch_id or "ALL")
     if batch_id:
         ACTIVE_BATCH_CANCELLATIONS.add(batch_id)
     ACTIVE_BATCH_CANCELLATIONS.add("__ALL__")
@@ -359,6 +364,9 @@ def send_batch_stream():
     global_bcc = req_data.get("global_bcc", None)
     batch_id = str(req_data.get("batch_id", "")).strip()
 
+    logger.info("Batch stream initialized: %d rows from %s (force_all=%s, delay=%.1fs, batch_id=%s)",
+                len(rows), csv_filename, force_all, delay, batch_id)
+
     # Clear any previous cancellation for this batch_id
     if batch_id:
         ACTIVE_BATCH_CANCELLATIONS.discard(batch_id)
@@ -376,9 +384,10 @@ def send_batch_stream():
 
         # Pre-connect SMTP client if there are rows to send
         try:
+            logger.debug("Pre-authenticating persistent SMTP connection for batch campaign...")
             smtp_client = mailer_service.create_smtp_client()
         except Exception as e:
-            # If initial connection fails, we'll try per-row fallback
+            logger.warning("Initial batch SMTP pre-connect failed: %s (Will fallback per-row)", e)
             smtp_client = None
 
         try:
@@ -389,6 +398,7 @@ def send_batch_stream():
                         ACTIVE_BATCH_CANCELLATIONS.discard(batch_id)
                     ACTIVE_BATCH_CANCELLATIONS.discard("__ALL__")
                     was_stopped = True
+                    logger.info("Batch campaign %s cancelled by user at row %d/%d", batch_id, idx + 1, total)
                     yield f"data: {json.dumps({'type': 'stopped', 'total': total, 'sent': sent_count, 'skipped': skipped_count, 'failed': failed_count, 'stopped_at': idx, 'message': 'Campaign stopped by user.'})}\n\n"
                     break
 
@@ -400,6 +410,7 @@ def send_batch_stream():
                 is_sent, prev = history_manager.is_row_sent(csv_filename, row_idx, email, row_dict)
                 if is_sent and not force_all:
                     skipped_count += 1
+                    logger.info("[Batch %d/%d] Skipped %s (Already sent on %s)", idx + 1, total, email, prev.get("timestamp") if prev else "earlier")
                     yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'skipped', 'email': email, 'index': row_idx, 'message': 'Skipped (Already sent)'})}\n\n"
                     continue
 
@@ -425,6 +436,7 @@ def send_batch_stream():
 
                 if result.get("success"):
                     sent_count += 1
+                    logger.info("[Batch %d/%d] Sent to %s", idx + 1, total, email)
                     yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'sent', 'email': email, 'index': row_idx, 'record': result.get('record'), 'cc': result.get('cc', []), 'bcc': result.get('bcc', [])})}\n\n"
                 else:
                     # If failed, drop the cached client so next row recreates a fresh connection
@@ -435,6 +447,7 @@ def send_batch_stream():
                             pass
                         smtp_client = None
                     failed_count += 1
+                    logger.warning("[Batch %d/%d] Failed sending to %s: %s", idx + 1, total, email, result.get('error'))
                     yield f"data: {json.dumps({'type': 'progress', 'current': idx + 1, 'total': total, 'status': 'failed', 'email': email, 'index': row_idx, 'error': result.get('error')})}\n\n"
 
                 if idx < total - 1 and delay > 0:
@@ -446,6 +459,7 @@ def send_batch_stream():
                         time.sleep(0.08)
 
             if not was_stopped:
+                logger.info("Batch campaign %s completed: Sent=%d, Skipped=%d, Failed=%d", batch_id, sent_count, skipped_count, failed_count)
                 yield f"data: {json.dumps({'type': 'complete', 'total': total, 'sent': sent_count, 'skipped': skipped_count, 'failed': failed_count})}\n\n"
         finally:
             if smtp_client:

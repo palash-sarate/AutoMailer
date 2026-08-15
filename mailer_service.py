@@ -15,6 +15,9 @@ import markdown
 from dotenv import dotenv_values, set_key
 
 import history_manager
+from logger_config import get_logger
+
+logger = get_logger("mailer_service")
 
 ENV_PATH = os.path.join(os.getcwd(), ".env")
 MAX_RAW_ATTACHMENT_BYTES = 19 * 1024 * 1024  # 19 MB raw ~= 25.3 MB base64 encoded
@@ -47,6 +50,7 @@ def save_config(new_config: Dict[str, str]) -> Dict[str, str]:
     for key, value in new_config.items():
         if value is not None:
             set_key(ENV_PATH, key, str(value).strip())
+    logger.info("Configuration updated in %s", ENV_PATH)
     return get_config()
 
 
@@ -59,13 +63,16 @@ def create_smtp_client(config: Optional[Dict[str, str]] = None, timeout: int = D
     pwd = (cfg.get("password", "") or "").replace(" ", "").strip()
 
     if not sender or not pwd:
+        logger.error("SMTP client creation failed: Sender email or password missing.")
         raise ValueError("Sender email and password are required.")
 
+    logger.debug("Connecting to SMTP server at %s:%d (timeout=%ds)...", host, port, timeout)
     context = ssl.create_default_context()
 
     if port == 465:
         server = smtplib.SMTP_SSL(host=host, port=port, context=context, timeout=timeout)
         server.login(sender, pwd)
+        logger.info("SMTP SSL connection established & authenticated for %s", sender)
         return server
     else:
         server = smtplib.SMTP(host=host, port=port, timeout=timeout)
@@ -73,6 +80,7 @@ def create_smtp_client(config: Optional[Dict[str, str]] = None, timeout: int = D
         server.starttls(context=context)
         server.ehlo()
         server.login(sender, pwd)
+        logger.info("SMTP TLS connection established & authenticated for %s", sender)
         return server
 
 
@@ -80,13 +88,16 @@ def test_smtp_connection(config: Optional[Dict[str, str]] = None) -> Dict[str, A
     """Tests the SMTP connection and credentials without sending an email."""
     try:
         cfg = config or get_config()
+        logger.info("Testing SMTP connection to %s:%s for %s", cfg.get("smtp_host"), cfg.get("smtp_port"), cfg.get("sender_email"))
         server = create_smtp_client(cfg)
         server.quit()
+        logger.info("SMTP connection test SUCCEEDED for %s", cfg.get("sender_email"))
         return {
             "success": True,
             "message": f"Successfully connected and authenticated with {cfg.get('smtp_host', 'SMTP server')}!"
         }
     except Exception as e:
+        logger.warning("SMTP connection test FAILED: %s", e)
         return {
             "success": False,
             "message": f"Authentication failed: {str(e)}"
@@ -323,9 +334,11 @@ def send_single_email(
 
     if total_attach_size > MAX_RAW_ATTACHMENT_BYTES:
         size_mb = round(total_attach_size / (1024 * 1024), 2)
+        err = f"Total attachment size ({size_mb} MB) exceeds Gmail's 25 MB limit (approx 19 MB unencoded)."
+        logger.warning(err)
         return {
             "success": False,
-            "error": f"Total attachment size ({size_mb} MB) exceeds Gmail's 25 MB limit (approx 19 MB unencoded)."
+            "error": err
         }
 
     # 4. Build RFC-Compliant MIME Structure
@@ -359,8 +372,9 @@ def send_single_email(
                     filename=filename
                 )
                 msg.attach(part)
+                logger.debug("Attached %s (%.1f KB, MIME: %s/%s)", filename, file_size / 1024, main_type, sub_type)
             except Exception as e:
-                print(f"Failed to attach {filename}: {e}")
+                logger.error("Failed to attach %s: %s", filename, e, exc_info=True)
     else:
         msg = body_container
 
@@ -386,8 +400,12 @@ def send_single_email(
     server = smtp_client
     should_quit = False
 
+    logger.info("Dispatching email [Row %s] -> To: %s | CC: %s | BCC: %d recipients | Subject: '%s'",
+                row_index + 1 if row_index is not None else 1, email, cc_list, len(bcc_list), subject)
+
     try:
         if server is None:
+            logger.debug("Opening dedicated SMTP connection for single send...")
             server = create_smtp_client(cfg)
             should_quit = True
 
@@ -396,9 +414,11 @@ def send_single_email(
         except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, smtplib.SMTPException) as conn_err:
             # If a connection error occurs on a persistent connection, try reconnecting once
             if not should_quit:
+                logger.warning("SMTP socket dropped during sendmail (%s). Reconnecting...", conn_err)
                 try:
                     server = create_smtp_client(cfg)
                     server.sendmail(sender_email, envelope_recipients, msg.as_string())
+                    logger.info("Auto-reconnection successful for %s", email)
                 except Exception:
                     raise conn_err
             else:
@@ -423,6 +443,7 @@ def send_single_email(
                 "_bcc": bcc_list
             }
         )
+        logger.info("SUCCESS: Email delivered to %s (Record ID: %s)", email, record.get("id"))
         return {
             "success": True,
             "message": f"Email successfully sent to {email}" + (f" (CC: {', '.join(cc_list)})" if cc_list else "") + (f" (BCC: {len(bcc_list)} recipients)" if bcc_list else ""),
@@ -437,6 +458,7 @@ def send_single_email(
             except Exception:
                 pass
         error_msg = str(e)
+        logger.error("FAILED to send email to %s: %s", email, error_msg, exc_info=True)
         # Record failure
         record = history_manager.record_send_result(
             csv_filename=csv_filename,
